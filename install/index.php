@@ -555,7 +555,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php if ($reinstallMode): ?><small>Si no cambió, puedes dejarla vacía y se reutilizará la conexión existente.</small><?php endif; ?>
                     </label>
                 </div>
-                <div class="info-box"><b>Consejo</b><span>En la mayoría de hostings, estos datos aparecen en la sección de bases de datos MySQL del panel de control.</span></div>
+                <div class="info-box hosting-note"><b>Importante</b><span>Algunos proveedores de hosting requieren crear previamente la base de datos y el usuario desde el panel de control, y luego asignar ese usuario a la base con los permisos correspondientes. En esos casos, utiliza aquí exactamente esos datos.</span></div>
             </section>
 
             <section class="wizard-panel" data-step-panel="2" aria-labelledby="step2Title" hidden>

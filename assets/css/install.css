@@ -418,3 +418,6 @@ input,select{height:47px;font-size:14px;padding:11px 13px}
   .database-step-grid .field-label{height:auto;min-height:22px;white-space:normal;overflow:visible}
   .database-step-grid > label > small{min-height:0}
 }
+
+/* Hosting setup note */
+.hosting-note{align-items:flex-start;line-height:1.55;overflow-wrap:anywhere;word-break:normal}.hosting-note b{flex:0 0 auto;white-space:nowrap}.hosting-note span{min-width:0;max-width:100%}@media(max-width:640px){.hosting-note{display:grid;grid-template-columns:1fr;gap:4px}.hosting-note b{white-space:normal}}
