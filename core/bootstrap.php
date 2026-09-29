@@ -23,6 +23,59 @@ if (!is_file($configFile)) {
 }
 $GLOBALS['app_config'] = require $configFile;
 
+
+// Application timezone: all business timestamps shown/stored by this CMS use Honduras time.
+if (function_exists('date_default_timezone_set')) {
+    date_default_timezone_set('America/Tegucigalpa');
+}
+
+function ensure_visit_tables(): void {
+    static $ready=false;
+    if($ready)return;
+    $pdo=db();
+    $pdo->exec("CREATE TABLE IF NOT EXISTS site_visits (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      visitor_key CHAR(64) NOT NULL,
+      path VARCHAR(255) NOT NULL DEFAULT '/',
+      visited_at DATETIME NOT NULL,
+      visit_date DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_site_visits_date(visit_date),
+      INDEX idx_site_visits_visited(visited_at),
+      INDEX idx_site_visits_visitor(visitor_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    try {
+        $pdo->prepare('INSERT IGNORE INTO admin_permissions(permission_key,label) VALUES(?,?)')
+            ->execute(['analytics.view','Website analytics']);
+        $pdo->exec("INSERT IGNORE INTO admin_role_permissions(role_id,permission_id) SELECT 1,id FROM admin_permissions WHERE permission_key='analytics.view'");
+    } catch(Throwable) {}
+    $ready=true;
+}
+
+function record_public_visit(string $path='/'): bool {
+    try {
+        // Any authenticated administrator previewing the published site is excluded from analytics.
+        if(current_admin()) return false;
+        if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET') return false;
+        ensure_visit_tables();
+        if(session_status()!==PHP_SESSION_ACTIVE)session_start();
+        if(empty($_SESSION['public_visitor_key'])) {
+            $_SESSION['public_visitor_key']=hash('sha256',random_bytes(32));
+        }
+        $key=(string)$_SESSION['public_visitor_key'];
+        $now=new DateTimeImmutable('now',new DateTimeZone('America/Tegucigalpa'));
+        $cleanPath=parse_url($path,PHP_URL_PATH)?:'/';
+        $cleanPath=substr((string)$cleanPath,0,255);
+        $st=db()->prepare('INSERT INTO site_visits(visitor_key,path,visited_at,visit_date) VALUES(?,?,?,?)');
+        $st->execute([$key,$cleanPath,$now->format('Y-m-d H:i:s'),$now->format('Y-m-d')]);
+        return true;
+    } catch(Throwable) { return false; }
+}
+
+function honduras_now(): DateTimeImmutable {
+    return new DateTimeImmutable('now',new DateTimeZone('America/Tegucigalpa'));
+}
+
 function app_config(?string $key=null, mixed $default=null): mixed {
     $cfg=$GLOBALS['app_config']??[];
     if($key===null)return $cfg;

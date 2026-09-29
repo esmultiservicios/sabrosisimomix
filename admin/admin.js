@@ -111,8 +111,8 @@ window.addEventListener('orientationchange',()=> {
   function closeModal() {
     modal?.classList.remove('open');modal?.setAttribute('aria-hidden','true');if(mimg)mimg.src=''
   }
-  qa('[data-preview-src]').forEach(b=>b.addEventListener('click',()=>openModal(b.dataset.previewSrc||'',b.dataset.previewCaption||'')));q('[data-modal-close]')?.addEventListener('click',closeModal);modal?.addEventListener('click',e=> {
-    if(e.target===modal)closeModal()
+  qa('[data-preview-src]').forEach(b=>b.addEventListener('click',()=>openModal(b.dataset.previewSrc||'',b.dataset.previewCaption||'')));document.addEventListener('click',e=>{const img=e.target.closest('img.preview-thumb,.current-upload-preview img,.premium-upload-preview img');if(img){e.preventDefault();openModal(img.currentSrc||img.src,img.alt||'Vista ampliada');}});q('[data-modal-close]')?.addEventListener('click',closeModal);modal?.addEventListener('click',e=> {
+    if(e.target===modal||e.target.classList.contains('admin-image-modal__backdrop'))closeModal()
   }
   );document.addEventListener('keydown',e=> {
     if(e.key==='Escape')closeModal()

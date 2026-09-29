@@ -168,6 +168,19 @@ CREATE TABLE IF NOT EXISTS estimate_request_flags (
   CONSTRAINT fk_est_flag FOREIGN KEY(estimate_id) REFERENCES estimate_requests(id) ON DELETE CASCADE,
   CONSTRAINT fk_est_flag_admin FOREIGN KEY(updated_by) REFERENCES admin_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS site_visits (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  visitor_key CHAR(64) NOT NULL,
+  path VARCHAR(255) NOT NULL DEFAULT '/',
+  visited_at DATETIME NOT NULL,
+  visit_date DATE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_site_visits_date(visit_date),
+  INDEX idx_site_visits_visited(visited_at),
+  INDEX idx_site_visits_visitor(visitor_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS activity_log (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   admin_id INT NULL,

@@ -2,11 +2,15 @@
 declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 $pdo=db();
+ensure_visit_tables();
+$todayH=honduras_now()->format('Y-m-d');
+$visitTodayStmt=$pdo->prepare('SELECT COUNT(*) FROM site_visits WHERE visit_date=?');$visitTodayStmt->execute([$todayH]);$visitsToday=(int)$visitTodayStmt->fetchColumn();
 $counts=[
     ['label'=>'Solicitudes','value'=>(int)$pdo->query('SELECT COUNT(*) FROM estimate_requests')->fetchColumn(),'icon'=>'✉'],
     ['label'=>'Nuevas','value'=>(int)$pdo->query("SELECT COUNT(*) FROM estimate_requests WHERE status='new'")->fetchColumn(),'icon'=>'●'],
     ['label'=>'Servicios','value'=>(int)$pdo->query('SELECT COUNT(*) FROM services WHERE active=1')->fetchColumn(),'icon'=>'✦'],
     ['label'=>'Proyectos','value'=>(int)$pdo->query('SELECT COUNT(*) FROM projects WHERE active=1')->fetchColumn(),'icon'=>'▤'],
+    ['label'=>'Visitas hoy','value'=>$visitsToday,'icon'=>'◷'],
 ];
 $latest=$pdo->query('SELECT * FROM estimate_requests ORDER BY id DESC LIMIT 6')->fetchAll();
 $pageTitle='Dashboard';$active='dashboard';require __DIR__.'/_header.php';
@@ -29,6 +33,7 @@ $pageTitle='Dashboard';$active='dashboard';require __DIR__.'/_header.php';
 <section class="panel">
   <div class="section-heading"><div><p class="eyebrow">ACCESOS RÁPIDOS</p><h2>Gestiona lo importante</h2><p>Acciones frecuentes sin perder tiempo buscando módulos.</p></div></div>
   <div class="quick-action-grid">
+    <a class="quick-action-card" href="analytics.php"><span class="qa-icon">◷</span><span><strong>Visitas</strong><small>Hoy, históricos y visitantes únicos</small></span></a>
     <a class="quick-action-card" href="estimates.php"><span class="qa-icon">✉</span><span><strong>Solicitudes</strong><small>Revisar cotizaciones recibidas</small></span></a>
     <a class="quick-action-card" href="media.php"><span class="qa-icon">▧</span><span><strong>Media Library</strong><small>Administrar imágenes y archivos</small></span></a>
     <a class="quick-action-card" href="widgets.php"><span class="qa-icon">◉</span><span><strong>Widgets flotantes</strong><small>WhatsApp, chat y posiciones</small></span></a>

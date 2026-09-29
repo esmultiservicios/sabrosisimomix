@@ -95,6 +95,7 @@ function render_social_links(array $items,string $style='icons'): string {
 $quoteError = $_SESSION['quote_error'] ?? '';
 $quoteOld = $_SESSION['quote_old'] ?? [];
 unset($_SESSION['quote_error'], $_SESSION['quote_old']);
+record_public_visit((string)($_SERVER['REQUEST_URI'] ?? '/'));
 ?>
 <!doctype html>
 <html lang="es">
@@ -185,7 +186,7 @@ unset($_SESSION['quote_error'], $_SESSION['quote_old']);
 
     <section class="section about" id="nosotros">
         <div class="about-media">
-            <img src="assets/images/gallery/evento-con-saltarin-y-taqueadas.jpg" alt="Sabrosísimo Mix atendiendo un evento con comida y saltarín">
+            <button class="about-image-button" type="button" data-site-lightbox data-lightbox-src="assets/images/gallery/evento-con-saltarin-y-taqueadas.jpg" data-lightbox-title="Sabrosísimo Mix en acción" data-lightbox-caption="Servicio en evento con preparación al momento y saltarín." aria-label="Ampliar fotografía"><img src="assets/images/gallery/evento-con-saltarin-y-taqueadas.jpg" alt="Sabrosísimo Mix atendiendo un evento con comida y saltarín"><span class="zoom-hint" aria-hidden="true">⌕</span></button>
             <div class="quality-badge"><b>4</b><span>líneas de<br>servicio base</span></div>
         </div>
         <div class="about-copy">
@@ -214,7 +215,7 @@ unset($_SESSION['quote_error'], $_SESSION['quote_old']);
                 <?php foreach ($projects as $p): ?>
                     <article class="project-card">
                         <?php if ($p['image_path']): ?>
-                            <img src="<?= h($p['image_path']) ?>" alt="<?= h($p['title']) ?>">
+                            <button class="project-image-button" type="button" data-site-lightbox data-lightbox-src="<?= h($p['image_path']) ?>" data-lightbox-title="<?= h($p['title']) ?>" data-lightbox-caption="<?= h($p['description']) ?>" aria-label="Ampliar imagen: <?= h($p['title']) ?>"><img src="<?= h($p['image_path']) ?>" alt="<?= h($p['title']) ?>"><span class="zoom-hint" aria-hidden="true">⌕</span></button>
                         <?php else: ?>
                             <div class="project-placeholder">SM</div>
                         <?php endif; ?>
@@ -335,6 +336,15 @@ unset($_SESSION['quote_error'], $_SESSION['quote_old']);
     <div class="external-widget-slot floating-slot pos-<?=h($externalWidgetPosition)?>" style="--float-offset:<?=$externalWidgetOffset?>px"><?= $externalWidgetCode ?></div>
 <?php endif; ?>
 </div>
-<script src="assets/vendor/ui-feedback.js?v=<?= @filemtime(__DIR__ . '/assets/vendor/ui-feedback.js') ?>"></script><script src="assets/js/site.js?v=<?= @filemtime(__DIR__ . '/assets/js/site.js') ?>"></script>
+<script src="assets/vendor/ui-feedback.js?v=<?= @filemtime(__DIR__ . '/assets/vendor/ui-feedback.js') ?>"></script>
+<div class="site-lightbox" data-site-lightbox-modal hidden aria-hidden="true">
+  <div class="site-lightbox-backdrop" data-site-lightbox-close></div>
+  <section class="site-lightbox-dialog" role="dialog" aria-modal="true" aria-labelledby="siteLightboxTitle">
+    <button class="site-lightbox-close" type="button" data-site-lightbox-close aria-label="Cerrar visor"><span aria-hidden="true">×</span><strong>Cerrar</strong></button>
+    <div class="site-lightbox-stage"><img data-site-lightbox-image alt=""></div>
+    <div class="site-lightbox-copy"><h2 id="siteLightboxTitle" data-site-lightbox-title></h2><p data-site-lightbox-caption></p></div>
+  </section>
+</div>
+<script src="assets/js/site.js?v=<?= @filemtime(__DIR__ . '/assets/js/site.js') ?>"></script>
 </body>
 </html>
