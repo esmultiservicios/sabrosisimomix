@@ -524,17 +524,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p>Ingresa las credenciales de MySQL. Si la base indicada todavía no existe, el instalador intentará crearla automáticamente.</p>
                 </div>
                 <div class="form-grid two database-step-grid">
-                    <label>Servidor
+                    <label>
+                        <span class="field-label">Servidor</span>
                         <input name="db_host" value="<?= e($_POST['db_host'] ?? ($existingConfig['db']['host'] ?? 'localhost')) ?>" required autocomplete="off">
                     </label>
-                    <label>Puerto
+                    <label>
+                        <span class="field-label">Puerto</span>
                         <input type="number" name="db_port" value="<?= e($_POST['db_port'] ?? ($existingConfig['db']['port'] ?? '3306')) ?>" min="1" max="65535" required>
                     </label>
-                    <label>Prefijo del hosting <span class="inline-note">· opcional</span>
+                    <label>
+                        <span class="field-label">Prefijo del hosting <span class="inline-note">· opcional</span></span>
                         <input name="db_prefix" value="<?= e($_POST['db_prefix'] ?? '') ?>" placeholder="ej. usuario123_" autocomplete="off" inputmode="latin">
                         <small>Algunos hostings anteponen automáticamente el usuario de la cuenta. Escríbelo aquí exactamente como aparece en tu panel.</small>
                     </label>
-                    <label>Nombre de la base de datos
+                    <label>
+                        <span class="field-label">Nombre de la base de datos</span>
                         <input name="db_base_name" value="<?= e($_POST['db_base_name'] ?? ($existingConfig['db']['name'] ?? 'sabrosisimo_mix')) ?>" required autocomplete="off" inputmode="latin">
                         <small>Escribe el nombre que deseas después del prefijo. Si tu hosting no usa prefijo, este será el nombre completo.</small>
                     </label>

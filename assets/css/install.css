@@ -271,3 +271,150 @@ input,select{height:47px;font-size:14px;padding:11px 13px}
 @media(max-width:680px){
   .database-step-grid .field-label{white-space:normal}
 }
+
+/* =========================================================
+   Assistant panel readability pass
+   - Wider desktop column
+   - Larger readable type
+   - No overflow / no layout drift
+   ========================================================= */
+@media(min-width:901px){
+  .wizard-shell{
+    grid-template-columns:minmax(0,1fr) clamp(390px,29vw,455px);
+  }
+  .wizard-assistant{
+    padding:clamp(28px,3.2vw,44px);
+    overflow:hidden;
+  }
+  .assistant-inner{
+    width:100%;
+    max-width:410px;
+    margin:auto;
+    min-width:0;
+  }
+  .assistant-brand{
+    height:clamp(112px,14vh,142px);
+    margin-bottom:22px;
+  }
+  .assistant-kicker{
+    font-size:11px;
+    line-height:1.3;
+    letter-spacing:.16em;
+  }
+  .wizard-assistant h2{
+    font-size:clamp(31px,2.5vw,41px);
+    line-height:1.08;
+    margin:11px 0 12px;
+    max-width:100%;
+    overflow-wrap:anywhere;
+  }
+  .wizard-assistant>div>p{
+    font-size:14px;
+    line-height:1.62;
+    max-width:100%;
+  }
+  .assistant-tip{
+    margin-top:18px;
+    padding:15px 16px;
+    border-radius:15px;
+  }
+  .assistant-tip span{font-size:10px}
+  .assistant-tip p{
+    font-size:12px;
+    line-height:1.55;
+  }
+  .assistant-checklist{
+    gap:10px;
+    margin-top:18px;
+  }
+  .assistant-checklist>div{
+    min-width:0;
+    align-items:center;
+  }
+  .assistant-checklist b{
+    width:32px;
+    height:32px;
+    flex:0 0 32px;
+    font-size:11px;
+  }
+  .assistant-checklist span{
+    font-size:13px;
+    line-height:1.35;
+    min-width:0;
+  }
+}
+
+@media(min-width:901px) and (max-width:1180px){
+  .wizard-shell{grid-template-columns:minmax(0,1fr) 360px}
+  .wizard-assistant{padding:24px}
+  .assistant-inner{max-width:330px}
+  .assistant-brand{height:108px}
+  .wizard-assistant h2{font-size:30px}
+  .wizard-assistant>div>p{font-size:13px}
+  .assistant-tip p{font-size:11px}
+  .assistant-checklist span{font-size:12px}
+}
+
+@media(max-height:760px) and (min-width:901px){
+  .wizard-assistant{
+    padding:18px 24px;
+    overflow:auto;
+    scrollbar-gutter:stable;
+  }
+  .assistant-inner{max-width:360px}
+  .assistant-brand{height:88px;margin-bottom:12px}
+  .assistant-kicker{font-size:9px}
+  .wizard-assistant h2{font-size:27px;margin:8px 0}
+  .wizard-assistant>div>p{font-size:12px;line-height:1.45}
+  .assistant-tip{margin-top:10px;padding:11px 12px}
+  .assistant-tip p{font-size:10px;line-height:1.4}
+  .assistant-checklist{margin-top:10px;gap:6px}
+  .assistant-checklist b{width:27px;height:27px;flex-basis:27px}
+  .assistant-checklist span{font-size:11px}
+}
+
+
+/* Final database alignment contract: labels never shift paired controls. */
+.database-step-grid > label{
+  display:grid;
+  grid-template-rows:22px 48px auto;
+  align-content:start;
+  gap:7px;
+}
+.database-step-grid > label.span-2{
+  grid-template-rows:22px auto auto;
+}
+.database-step-grid .field-label{
+  min-height:22px;
+  height:22px;
+  line-height:22px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.database-step-grid .field-label .inline-note{
+  display:inline;
+  flex:0 0 auto;
+  line-height:22px;
+  margin:0;
+}
+.database-step-grid > label > input,
+.database-step-grid > label > .password-field{
+  height:48px;
+  min-height:48px;
+  margin:0;
+}
+.database-step-grid > label > .password-field input{height:46px}
+.database-step-grid > label > small{
+  min-height:34px;
+  margin:0;
+  line-height:1.45;
+}
+@media(max-width:680px){
+  .database-step-grid > label{grid-template-rows:auto 48px auto}
+  .database-step-grid .field-label{height:auto;min-height:22px;white-space:normal;overflow:visible}
+  .database-step-grid > label > small{min-height:0}
+}
