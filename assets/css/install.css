@@ -152,3 +152,110 @@ select option:checked{background:#c93427;color:#fff}
 .install-page select option {background:#fff;color:#1f2937}
 .wizard-card select option:checked,
 .install-page select option:checked {background:#2563eb;color:#fff}
+
+/* =========================================================
+   Installer layout final: legible, viewport-aware and hosting-prefix ready
+   ========================================================= */
+:root{--installer-max:1520px}
+html,body{font-size:16px}
+body{min-height:100dvh;background:#f3eee8}
+.wizard-shell{
+  width:min(100%,var(--installer-max));
+  height:100dvh;min-height:100dvh;margin:0 auto;
+  grid-template-columns:minmax(0,1fr) clamp(330px,24vw,390px);
+}
+.wizard-card{padding:clamp(18px,2.2vh,28px) clamp(22px,2.5vw,38px) 18px}
+.wizard-brand h1{font-size:clamp(23px,1.8vw,29px)}
+.wizard-brand p{font-size:12px}
+.wizard-header{margin-bottom:12px}
+.wizard-progress{margin-bottom:10px}
+.reinstall-notice{font-size:12px;line-height:1.45}
+.wizard-steps{margin-bottom:13px}
+.wizard-step{min-height:58px;padding:10px 12px}
+.wizard-step strong{font-size:12px}.wizard-step small{font-size:10px}
+#installForm{min-height:0;display:flex;flex:1;flex-direction:column;overflow:hidden}
+.wizard-panel{min-height:0;flex:1;overflow:auto;padding:7px 12px 12px 2px;scrollbar-gutter:stable}
+.panel-heading{margin-bottom:17px}
+.panel-heading h2{font-size:clamp(27px,2vw,32px);line-height:1.12}
+.panel-heading p{font-size:13px;line-height:1.55;max-width:820px}
+.form-grid{gap:15px 16px}
+label{font-size:13px;gap:7px}
+label small{font-size:11px;line-height:1.45;min-height:0}
+input,select{height:47px;font-size:14px;padding:11px 13px}
+.password-field{height:47px}.password-field input{height:45px}
+.info-box{font-size:11px;line-height:1.45;padding:11px 13px}
+.wizard-actions{
+  position:sticky;bottom:0;z-index:45;flex:none;
+  margin-top:8px;padding:12px 0 3px;
+  background:linear-gradient(to top,var(--paper) 82%,rgba(255,253,250,.94));
+}
+.button{min-height:44px;font-size:13px;padding:11px 17px}
+.wizard-assistant{padding:clamp(22px,3vw,38px)}
+.wizard-assistant h2{font-size:clamp(28px,2.35vw,38px);line-height:1.08}
+.wizard-assistant>div>p{font-size:13px;line-height:1.55}
+.assistant-tip p{font-size:11px;line-height:1.45}
+
+.database-preview{margin-top:1px}
+.database-preview-box{
+  min-height:48px;border:1px solid #dfd2c7;border-radius:13px;background:#fffaf2;
+  display:flex;align-items:center;gap:0;padding:10px 13px;overflow:auto;
+  font:700 14px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace;color:#705025
+}
+.database-preview-box span{color:#a56b1c;white-space:pre}
+.database-preview-box strong{color:#271c17;white-space:pre;font:inherit}
+.database-preview code{background:#f4eadc;border-radius:5px;padding:1px 4px;color:#6e4b1d}
+
+@media(max-width:1050px){
+  .wizard-shell{grid-template-columns:minmax(0,1fr) 320px}
+  .wizard-assistant{padding:22px}
+  .assistant-brand{height:100px}
+  .wizard-assistant h2{font-size:27px}
+}
+@media(max-width:900px){
+  body{overflow:auto}
+  .wizard-shell{display:block;width:100%;height:auto;min-height:100dvh;overflow:visible;box-shadow:none}
+  .wizard-assistant{display:none}
+  .wizard-card{min-height:100dvh;height:auto;padding:18px max(16px,env(safe-area-inset-left)) 88px;overflow:visible}
+  #installForm{display:block;overflow:visible}
+  .wizard-panel{overflow:visible;padding:6px 0 12px}
+  .wizard-actions{
+    position:fixed;left:0;right:0;bottom:0;z-index:100;
+    padding:11px max(16px,env(safe-area-inset-right)) max(11px,env(safe-area-inset-bottom));
+    border-top:1px solid var(--line);background:rgba(255,253,250,.98);box-shadow:0 -10px 28px rgba(50,30,20,.09)
+  }
+  .wizard-steps{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .wizard-step{min-height:48px;justify-content:center}
+  .wizard-step div{display:none}
+  .form-grid.two{grid-template-columns:1fr 1fr}
+}
+@media(max-width:680px){
+  .wizard-brand h1{white-space:normal;font-size:21px}
+  .wizard-status{display:none}
+  .wizard-logo{width:50px;height:50px;flex-basis:50px}
+  .form-grid.two,.mail-options,.review-grid{grid-template-columns:1fr}
+  .span-2{grid-column:auto}
+  .panel-heading h2{font-size:25px}
+  .panel-heading p{font-size:13px}
+  input,select,.password-field{height:48px}
+  .password-field input{height:46px}
+  .wizard-actions .button{min-height:48px}
+  .actions-spacer{display:none}
+  .wizard-actions [data-next],.wizard-actions [data-install]{flex:1}
+  .database-preview-box{font-size:13px;white-space:normal;overflow-wrap:anywhere}
+}
+@media(max-width:400px){
+  .wizard-card{padding-left:13px;padding-right:13px}
+  .wizard-brand{gap:9px}.wizard-brand span{font-size:8px}
+  .wizard-steps{gap:5px}.wizard-step{padding:6px}.wizard-step>span{width:31px;height:31px;flex-basis:31px}
+  .button{padding:10px 12px}
+}
+@media(max-height:690px) and (min-width:901px){
+  .wizard-card{padding-top:14px;padding-bottom:8px}
+  .wizard-header{margin-bottom:7px}.wizard-logo{width:48px;height:48px;flex-basis:48px}.wizard-brand h1{font-size:23px}
+  .wizard-progress{margin-bottom:7px}.reinstall-notice{margin-bottom:7px;padding:8px 11px}
+  .wizard-steps{margin-bottom:8px}.wizard-step{min-height:48px;padding:7px 9px}
+  .panel-heading{margin-bottom:11px}.panel-heading h2{font-size:25px}.panel-heading p{font-size:12px}
+  .form-grid{gap:11px 13px}input,select{height:43px}.password-field{height:43px}.password-field input{height:41px}
+  .wizard-actions{padding-top:8px}.button{min-height:40px}
+  .assistant-brand{height:86px;margin-bottom:12px}.wizard-assistant h2{font-size:25px}
+}

@@ -68,7 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $host = trim((string) ($_POST['db_host'] ?? ($existingConfig['db']['host'] ?? 'localhost')));
         $port = (int) ($_POST['db_port'] ?? ($existingConfig['db']['port'] ?? 3306));
-        $name = trim((string) ($_POST['db_name'] ?? ($existingConfig['db']['name'] ?? '')));
+        $dbPrefix = trim((string) ($_POST['db_prefix'] ?? ''));
+        $dbBaseName = trim((string) ($_POST['db_base_name'] ?? ($existingConfig['db']['name'] ?? '')));
+        $name = $dbPrefix . $dbBaseName;
         $user = trim((string) ($_POST['db_user'] ?? ($existingConfig['db']['user'] ?? '')));
         $pass = (string) ($_POST['db_pass'] ?? '');
         if ($pass === '' && $reinstallMode) {
@@ -84,8 +86,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $siteUrl = $detectedSiteUrl;
         }
 
-        if ($name === '' || $user === '') {
+        if ($dbBaseName === '' || $user === '') {
             throw new RuntimeException('Completa la información de la base de datos.');
+        }
+        if ($dbPrefix !== '' && !preg_match('/^[A-Za-z0-9_$-]+$/', $dbPrefix)) {
+            throw new RuntimeException('El prefijo de la base de datos solo puede contener letras, números, guion, guion bajo o $.');
+        }
+        if (!preg_match('/^[A-Za-z0-9_$-]+$/', $dbBaseName)) {
+            throw new RuntimeException('El nombre de la base de datos solo puede contener letras, números, guion, guion bajo o $.');
+        }
+        if (strlen($name) > 64) {
+            throw new RuntimeException('El nombre final de la base de datos supera el máximo de 64 caracteres permitido por MySQL.');
         }
         if ($port < 1 || $port > 65535) {
             throw new RuntimeException('El puerto de MySQL no es válido.');
@@ -519,8 +530,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label>Puerto
                         <input type="number" name="db_port" value="<?= e($_POST['db_port'] ?? ($existingConfig['db']['port'] ?? '3306')) ?>" min="1" max="65535" required>
                     </label>
-                    <label>Base de datos
-                        <input name="db_name" value="<?= e($_POST['db_name'] ?? ($existingConfig['db']['name'] ?? 'sabrosisimo_mix')) ?>" required autocomplete="off">
+                    <label>Prefijo del hosting <span class="inline-note">· opcional</span>
+                        <input name="db_prefix" value="<?= e($_POST['db_prefix'] ?? '') ?>" placeholder="ej. usuario123_" autocomplete="off" inputmode="latin">
+                        <small>Algunos hostings anteponen automáticamente el usuario de la cuenta. Escríbelo aquí exactamente como aparece en tu panel.</small>
+                    </label>
+                    <label>Nombre de la base de datos
+                        <input name="db_base_name" value="<?= e($_POST['db_base_name'] ?? ($existingConfig['db']['name'] ?? 'sabrosisimo_mix')) ?>" required autocomplete="off" inputmode="latin">
+                        <small>Escribe el nombre que deseas después del prefijo. Si tu hosting no usa prefijo, este será el nombre completo.</small>
+                    </label>
+                    <label class="span-2 database-preview">
+                        <span class="field-label">Nombre final que utilizará MySQL</span>
+                        <div class="database-preview-box"><span data-db-prefix-preview></span><strong data-db-name-preview>sabrosisimo_mix</strong></div>
+                        <small>Ejemplo: <code>usuario123_</code> + <code>sabrosisimo_mix</code> = <code>usuario123_sabrosisimo_mix</code>. El sistema no inventa ni fuerza el prefijo.</small>
                     </label>
                     <label>Usuario MySQL
                         <input name="db_user" value="<?= e($_POST['db_user'] ?? ($existingConfig['db']['user'] ?? '')) ?>" required autocomplete="off">
@@ -789,10 +810,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         return true;
     }
 
+    function databaseName() {
+        const prefix = getField('db_prefix')?.value.trim() || '';
+        const base = getField('db_base_name')?.value.trim() || '';
+        return `${prefix}${base}`;
+    }
+
+    function syncDatabasePreview() {
+        const prefix = getField('db_prefix')?.value.trim() || '';
+        const base = getField('db_base_name')?.value.trim() || '—';
+        const prefixNode = document.querySelector('[data-db-prefix-preview]');
+        const nameNode = document.querySelector('[data-db-name-preview]');
+        if (prefixNode) prefixNode.textContent = prefix;
+        if (nameNode) nameNode.textContent = base;
+    }
+
     function updateReview() {
         const host = getField('db_host')?.value.trim() || 'localhost';
         const port = getField('db_port')?.value.trim() || '3306';
-        const db = getField('db_name')?.value.trim() || '—';
+        const db = databaseName() || '—';
         const dbUser = getField('db_user')?.value.trim() || '—';
         const adminName = getField('admin_name')?.value.trim() || '—';
         const adminEmail = getField('admin_email')?.value.trim() || '—';
@@ -937,6 +973,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (window.showNotify) showNotify(el.dataset.message || '', el.dataset.type || 'error', { duration: 7000, title: 'Instalación' });
     });
 
+    ['db_prefix','db_base_name'].forEach(name => getField(name)?.addEventListener('input', syncDatabasePreview));
+    syncDatabasePreview();
     syncMail();
     showStep(<?= $error ? '4' : '1' ?>);
 })();
