@@ -259,3 +259,15 @@ input,select{height:47px;font-size:14px;padding:11px 13px}
   .wizard-actions{padding-top:8px}.button{min-height:40px}
   .assistant-brand{height:86px;margin-bottom:12px}.wizard-assistant h2{font-size:25px}
 }
+
+/* Database step alignment: every paired control shares the same visual baseline. */
+.database-step-grid{align-items:start}
+.database-step-grid > label{min-width:0}
+.database-step-grid .field-label{display:flex;align-items:center;min-height:20px;line-height:20px;gap:6px;white-space:nowrap}
+.database-step-grid .inline-note{font-size:11px;font-weight:600;color:var(--muted)}
+.database-step-grid input,
+.database-step-grid .password-field{width:100%}
+.database-step-grid label>small{margin-top:1px}
+@media(max-width:680px){
+  .database-step-grid .field-label{white-space:normal}
+}

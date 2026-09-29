@@ -523,7 +523,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <h2 id="step1Title">Conecta la base de datos</h2>
                     <p>Ingresa las credenciales de MySQL. Si la base indicada todavía no existe, el instalador intentará crearla automáticamente.</p>
                 </div>
-                <div class="form-grid two">
+                <div class="form-grid two database-step-grid">
                     <label>Servidor
                         <input name="db_host" value="<?= e($_POST['db_host'] ?? ($existingConfig['db']['host'] ?? 'localhost')) ?>" required autocomplete="off">
                     </label>
@@ -543,10 +543,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="database-preview-box"><span data-db-prefix-preview></span><strong data-db-name-preview>sabrosisimo_mix</strong></div>
                         <small>Ejemplo: <code>usuario123_</code> + <code>sabrosisimo_mix</code> = <code>usuario123_sabrosisimo_mix</code>. El sistema no inventa ni fuerza el prefijo.</small>
                     </label>
-                    <label>Usuario MySQL
+                    <label><span class="field-label">Usuario MySQL</span>
                         <input name="db_user" value="<?= e($_POST['db_user'] ?? ($existingConfig['db']['user'] ?? '')) ?>" required autocomplete="off">
                     </label>
-                    <label class="span-2"><span class="field-label">Contraseña MySQL</span>
+                    <label><span class="field-label">Contraseña MySQL</span>
                         <div class="password-field"><input type="password" name="db_pass" autocomplete="new-password" placeholder="<?= $reinstallMode ? 'Déjala vacía para usar la contraseña actual' : 'Contraseña MySQL' ?>"><button type="button" class="toggle-password" aria-label="Mostrar contraseña">Mostrar</button></div>
                         <?php if ($reinstallMode): ?><small>Si no cambió, puedes dejarla vacía y se reutilizará la conexión existente.</small><?php endif; ?>
                     </label>
