@@ -1,0 +1,30 @@
+<?php
+declare(strict_types=1);require __DIR__.'/bootstrap.php';require_permission('email.manage');require_once dirname(__DIR__).'/core/EmailService.php';$service=new EmailService();$saved=$service->getConfiguration();$method=$saved['method'];$cfg=$saved['config'];$message='';$type='';
+if($_SERVER['REQUEST_METHOD']==='POST'){try{verify_csrf();$method=(string)($_POST['mail_method']??'none');if($method==='smtp'){$cfg=['host'=>trim((string)$_POST['smtp_host']),'port'=>(int)$_POST['smtp_port'],'encryption'=>(string)$_POST['smtp_encryption'],'username'=>trim((string)$_POST['smtp_username'],' '),'password'=>(string)($_POST['smtp_password']!==''?$_POST['smtp_password']:($cfg['password']??'')),'from_email'=>trim((string)$_POST['smtp_from_email']),'from_name'=>trim((string)$_POST['smtp_from_name'])];}elseif($method==='graph'){$cfg=['tenant_id'=>trim((string)$_POST['graph_tenant_id']),'client_id'=>trim((string)$_POST['graph_client_id']),'client_secret'=>(string)($_POST['graph_client_secret']!==''?$_POST['graph_client_secret']:($cfg['client_secret']??'')),'sender_email'=>trim((string)$_POST['graph_sender_email'])];}else{$method='none';$cfg=[];}if(isset($_POST['test'])){$result=$service->test($method,$cfg,trim((string)$_POST['test_email']));$message=$result['message'];$type=$result['success']?'success':'error';}else{$service->saveConfiguration($method,$cfg);log_activity('email_settings','Updated email configuration',['method'=>$method]);flash('success','Configuración de correo guardada.');header('Location: email.php');exit;}}catch(Throwable $e){$message=$e->getMessage();$type='error';}}
+$pageTitle='Email';$active='email';require __DIR__.'/_header.php';?>
+<div class="page-heading"><div><p class="eyebrow">CORREO</p><h1>SMTP / Microsoft Graph</h1><p class="muted">Elige un método. Solo se muestran los campos necesarios y puedes probar antes de guardar. Cuando el correo está configurado, las nuevas solicitudes del sitio notifican automáticamente al correo de la cuenta administradora principal.</p></div></div>
+<?php if($message):?><div hidden data-inline-notify data-message="<?=h($message)?>" data-type="<?=h($type)?>"></div><?php endif;?>
+<form class="panel email-settings-form" method="post" id="emailForm"><input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+<div class="email-methods" role="radiogroup" aria-label="Método de correo">
+<label class="email-method-card">
+  <input class="email-method-input" type="radio" name="mail_method" value="none" <?=$method==='none'?'checked':''?>>
+  <span class="email-method-indicator" aria-hidden="true"><span></span></span>
+  <span class="email-method-copy"><strong>Configurar después</strong><small>Desactiva el envío sin afectar el CMS.</small></span>
+</label>
+<label class="email-method-card">
+  <input class="email-method-input" type="radio" name="mail_method" value="smtp" <?=$method==='smtp'?'checked':''?>>
+  <span class="email-method-indicator" aria-hidden="true"><span></span></span>
+  <span class="email-method-copy"><strong>SMTP</strong><small>Servidor y credenciales.</small></span>
+</label>
+<label class="email-method-card">
+  <input class="email-method-input" type="radio" name="mail_method" value="graph" <?=$method==='graph'?'checked':''?>>
+  <span class="email-method-indicator" aria-hidden="true"><span></span></span>
+  <span class="email-method-copy"><strong>Microsoft Graph</strong><small>OAuth2 / Microsoft 365.</small></span>
+</label>
+</div>
+<div class="email-method-panel" data-method="smtp"><div class="form-grid"><label>Servidor<input name="smtp_host" value="<?=h($cfg['host']??'')?>"></label><label>Puerto<input type="number" name="smtp_port" value="<?=h($cfg['port']??587)?>"></label><label>Seguridad<select name="smtp_encryption"><option value="tls" <?=($cfg['encryption']??'tls')==='tls'?'selected':''?>>TLS / STARTTLS</option><option value="ssl" <?=($cfg['encryption']??'')==='ssl'?'selected':''?>>SSL</option><option value="none" <?=($cfg['encryption']??'')==='none'?'selected':''?>>Sin cifrado</option></select></label><label>Usuario<input name="smtp_username" value="<?=h($cfg['username']??'')?>"></label><label>Contraseña<input type="password" name="smtp_password" placeholder="<?=isset($cfg['password'])?'Dejar vacío para conservar':'Contraseña'?>"></label><label>Correo remitente<input type="email" name="smtp_from_email" value="<?=h($cfg['from_email']??'')?>"></label><label class="full">Nombre remitente<input name="smtp_from_name" value="<?=h($cfg['from_name']??setting('site_name','Sabrosísimo Mix'))?>"></label></div></div>
+<div class="email-method-panel" data-method="graph"><div class="form-grid"><label>Tenant ID<input name="graph_tenant_id" value="<?=h($cfg['tenant_id']??'')?>"></label><label>Client ID<input name="graph_client_id" value="<?=h($cfg['client_id']??'')?>"></label><label>Client Secret<input type="password" name="graph_client_secret" placeholder="<?=isset($cfg['client_secret'])?'Dejar vacío para conservar':'Client Secret'?>"></label><label>Correo Microsoft 365<input type="email" name="graph_sender_email" value="<?=h($cfg['sender_email']??'')?>"></label></div></div>
+<div class="email-test-panel"><label class="email-test-field"><span>Correo para prueba</span><input type="email" name="test_email" value="<?=h(current_admin()['email']??'')?>"></label><div class="email-test-actions"><button type="submit" name="test" value="1" class="secondary">Probar configuración</button><button type="submit">Guardar</button></div></div>
+</form>
+<script>const r=[...document.querySelectorAll('[name=mail_method]')],p=[...document.querySelectorAll('.email-method-panel[data-method]')];function s(){const m=document.querySelector('[name=mail_method]:checked').value;p.forEach(x=>x.hidden=x.dataset.method!==m)}r.forEach(x=>x.addEventListener('change',s));s();</script>
+<?php require __DIR__.'/_footer.php';?>

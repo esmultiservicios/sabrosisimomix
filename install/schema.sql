@@ -1,0 +1,183 @@
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS=0;
+
+CREATE TABLE IF NOT EXISTS admin_roles (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  role_name VARCHAR(80) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS admin_permissions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  permission_key VARCHAR(120) NOT NULL UNIQUE,
+  label VARCHAR(160) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS admin_role_permissions (
+  role_id INT NOT NULL,
+  permission_id INT NOT NULL,
+  PRIMARY KEY(role_id,permission_id),
+  CONSTRAINT fk_rp_role FOREIGN KEY(role_id) REFERENCES admin_roles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rp_perm FOREIGN KEY(permission_id) REFERENCES admin_permissions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS admin_users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  role_id INT NULL,
+  username VARCHAR(80) NOT NULL UNIQUE,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  full_name VARCHAR(160) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_admin_role FOREIGN KEY(role_id) REFERENCES admin_roles(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS admin_password_resets (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL,
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_password_reset_admin(admin_id),
+  INDEX idx_password_reset_expiry(expires_at),
+  CONSTRAINT fk_password_reset_admin FOREIGN KEY(admin_id) REFERENCES admin_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS settings (
+  setting_key VARCHAR(150) PRIMARY KEY,
+  setting_value LONGTEXT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS content_blocks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  content_key VARCHAR(150) NOT NULL UNIQUE,
+  label VARCHAR(160) NOT NULL,
+  content_value LONGTEXT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS services (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(160) NOT NULL,
+  description TEXT NULL,
+  icon VARCHAR(40) NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS projects (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(180) NOT NULL,
+  category VARCHAR(120) NULL,
+  description TEXT NULL,
+  image_path VARCHAR(255) NULL,
+  external_url VARCHAR(255) NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS service_areas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  description TEXT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  active TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS tips (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(180) NOT NULL,
+  body TEXT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  active TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS videos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(180) NOT NULL,
+  video_url VARCHAR(500) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  active TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS media_library (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  file_path VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(120) NOT NULL,
+  file_size INT NOT NULL DEFAULT 0,
+  alt_text VARCHAR(255) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS estimate_requests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  full_name VARCHAR(180) NULL,
+  phone VARCHAR(80) NULL,
+  email VARCHAR(190) NULL,
+  address VARCHAR(255) NULL,
+  service_needed VARCHAR(180) NULL,
+  lead_source VARCHAR(120) NULL,
+  lead_source_detail VARCHAR(255) NULL,
+  photo_path VARCHAR(255) NULL,
+  message TEXT NULL,
+  status ENUM('new','contacted','in_progress','won','lost','closed') NOT NULL DEFAULT 'new',
+  priority ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
+  follow_up_date DATE NULL,
+  assigned_to INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_estimate_assignee FOREIGN KEY(assigned_to) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS estimate_attachments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  estimate_id INT NOT NULL,
+  file_path VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(120) NOT NULL,
+  file_size INT NOT NULL DEFAULT 0,
+  CONSTRAINT fk_est_att FOREIGN KEY(estimate_id) REFERENCES estimate_requests(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS estimate_notes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  estimate_id INT NOT NULL,
+  admin_id INT NULL,
+  note TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_est_note FOREIGN KEY(estimate_id) REFERENCES estimate_requests(id) ON DELETE CASCADE,
+  CONSTRAINT fk_note_admin FOREIGN KEY(admin_id) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS estimate_replies (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  estimate_id INT NOT NULL,
+  admin_id INT NULL,
+  recipient_email VARCHAR(190) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  message LONGTEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_est_rep FOREIGN KEY(estimate_id) REFERENCES estimate_requests(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rep_admin FOREIGN KEY(admin_id) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS estimate_reply_attachments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  reply_id INT NOT NULL,
+  estimate_id INT NOT NULL,
+  file_path VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(120) NOT NULL,
+  file_size INT NOT NULL DEFAULT 0,
+  CONSTRAINT fk_rep_att_rep FOREIGN KEY(reply_id) REFERENCES estimate_replies(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rep_att_est FOREIGN KEY(estimate_id) REFERENCES estimate_requests(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS estimate_request_flags (
+  estimate_id INT PRIMARY KEY,
+  is_spam TINYINT(1) NOT NULL DEFAULT 0,
+  archived_at DATETIME NULL,
+  updated_by INT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_est_flag FOREIGN KEY(estimate_id) REFERENCES estimate_requests(id) ON DELETE CASCADE,
+  CONSTRAINT fk_est_flag_admin FOREIGN KEY(updated_by) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS activity_log (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NULL,
+  action VARCHAR(120) NOT NULL,
+  message VARCHAR(255) NOT NULL,
+  context_json LONGTEXT NULL,
+  ip_address VARCHAR(64) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_activity_created(created_at),
+  CONSTRAINT fk_activity_admin FOREIGN KEY(admin_id) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET FOREIGN_KEY_CHECKS=1;

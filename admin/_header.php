@@ -1,0 +1,21 @@
+<?php
+$me=current_admin();$flash=consume_flash();$title=$pageTitle??'Administration';$active=$active??'';
+$nav=[
+ ['dashboard.php','dashboard','Dashboard','⌂'],
+ ['content.php','content','Page Content','✎'],
+ ['services.php','services','Services','✦'],
+ ['projects.php','projects','Projects','▤'],
+ ['media.php','media','Media Library','▧'],
+ ['extras.php','extras','Areas · Tips · Videos','☰'],
+ ['estimates.php','estimates','Estimate Requests','✉'],
+ ['email.php','email','Email','@'],
+ ['settings.php','settings','Settings','⚙'],
+ ['widgets.php','widgets','Floating Widgets','◉'],
+ ['social.php','social','Redes sociales','◎'],
+ ['health.php','health','Website Health','✓'],
+];
+?><!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title><?=h($title)?> · Sabrosísimo Mix CMS</title><link rel="stylesheet" href="admin.css?v=<?=@filemtime(__DIR__.'/admin.css')?>"><link rel="stylesheet" href="admin-custom.css?v=<?=@filemtime(__DIR__.'/admin-custom.css')?>"><link rel="stylesheet" href="premium-system.css?v=<?=@filemtime(__DIR__.'/premium-system.css')?>"><link rel="stylesheet" href="../assets/vendor/ui-feedback.css?v=<?=@filemtime(ROOT_DIR.'/assets/vendor/ui-feedback.css')?>"></head><body class="admin-app">
+<div class="admin-shell">
+<aside class="admin-sidebar" id="adminSidebar" data-sidebar><a class="admin-brand" href="dashboard.php"><span class="brand-mark">SM</span><span><strong>Sabrosísimo Mix</strong><small>CMS Premium</small></span></a><nav class="admin-nav"><?php foreach($nav as $n):?><a href="<?=$n[0]?>" class="<?=$active===$n[1]?'active':''?>"><span class="nav-icon"><?=$n[3]?></span><span><?=$n[2]?></span></a><?php endforeach;?></nav><div class="sidebar-bottom"><a href="../" target="_blank">↗ Ver sitio</a><a href="logout.php">Salir</a></div></aside><div class="sidebar-backdrop" data-sidebar-backdrop></div>
+<div class="admin-main"><header class="admin-topbar"><button class="menu-toggle" type="button" data-sidebar-toggle aria-label="Abrir menú">☰</button><div class="topbar-title"><small>ADMINISTRACIÓN</small><strong><?=h($title)?></strong></div><div class="topbar-actions"><a href="../" target="_blank" rel="noopener" class="topbar-link"><span>↗</span><em>Ver sitio</em></a><?php if(user_can('email.manage')):?><a href="email.php" class="topbar-link"><span>@</span><em>Correo</em></a><?php endif;?><?php if(user_can('settings.manage')):?><a href="widgets.php" class="topbar-link"><span>◉</span><em>Widgets</em></a><a href="social.php" class="topbar-link"><span>◎</span><em>Redes</em></a><a href="settings.php" class="topbar-link"><span>⚙</span><em>Configuración</em></a><?php endif;?></div><details class="profile-menu"><summary class="top-user" aria-label="Abrir menú de usuario"><span class="top-user-copy"><strong><?=h($me['full_name']??'Administrador')?></strong><small><?=h($me['role_name']??'Usuario')?></small></span><b><?=h(strtoupper(substr((string)($me['full_name']??'A'),0,1)))?></b><span class="profile-chevron">⌄</span></summary><div class="profile-dropdown"><div class="profile-dropdown-head"><b><?=h($me['full_name']??'Administrador')?></b><small><?=h($me['email']??'')?></small></div><a href="profile.php"><span>♙</span><div><strong>Mi perfil</strong><small>Cuenta, correo y contraseña</small></div></a><a href="../" target="_blank" rel="noopener"><span>↗</span><div><strong>Ver sitio</strong><small>Abrir la web publicada</small></div></a><?php if(user_can('email.manage')):?><a href="email.php"><span>@</span><div><strong>Correo</strong><small>SMTP y Microsoft Graph</small></div></a><?php endif;?><?php if(user_can('settings.manage')):?><a href="social.php"><span>◎</span><div><strong>Redes sociales</strong><small>Canales y ubicación</small></div></a><a href="settings.php"><span>⚙</span><div><strong>Configuración</strong><small>Ajustes generales del CMS</small></div></a><?php endif;?><div class="profile-dropdown-separator"></div><a class="profile-logout" href="logout.php"><span>⇥</span><div><strong>Cerrar sesión</strong><small>Salir de forma segura</small></div></a></div></details></header><main class="admin-content">
+<?php if($flash):?><div hidden data-flash-message="<?=h($flash['message'])?>" data-flash-type="<?=h($flash['type'])?>"></div><?php endif;?>
