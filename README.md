@@ -70,3 +70,27 @@ Este proyecto usa `config/install.lock` como bloqueo de instalación.
 - Recuperación de contraseña disponible desde `admin/forgot-password.php` con token hash, vencimiento de 60 minutos y uso único.
 - Si SMTP o Microsoft Graph está configurado al instalar, se envía un correo de bienvenida con la plantilla HTML central del CMS. Un fallo de ese correo no revierte la instalación.
 - `showNotify`, `Swal.fire` compatible y `CMSDialog` son locales bajo `assets/vendor/`; no requieren CDN.
+
+## Git Version Control de cPanel
+
+El proyecto incluye `.cpanel.yml` y `.gitignore` preparados para despliegue manual con **Update from Remote** y **Deploy HEAD Commit**.
+
+El despliegue evita comodines globales, no copia `.git`, no elimina contenido runtime y preserva archivos sensibles de producción como `config/config.php`, `config/install.lock`, `.env`, uploads, `.user.ini`, `php.ini`, `.well-known/`, logs, caché y backups.
+
+El `.htaccess` raíz continúa versionado como referencia del proyecto, pero el despliegue solo lo copia si no existe todavía en producción para no destruir bloques que cPanel, MultiPHP o SSL puedan administrar.
+
+Consulta `DEPLOYMENT-CPANEL.md` antes del primer despliegue.
+
+## Editor de texto enriquecido local
+
+Los campos de contenido basados en `textarea` se mejoran automáticamente con el editor premium local de `assets/vendor/richtext-local.js` y `assets/vendor/richtext-local.css`. El editor funciona sin CDN, sincroniza el HTML seguro con el `textarea` real antes de enviar el formulario y permite negrita, cursiva, subrayado, tachado, listas, citas, alineación, enlaces, deshacer/rehacer y limpieza de formato.
+
+Por seguridad, el servidor vuelve a sanear el contenido mediante `rich_text_sanitize()` antes de almacenarlo. El campo de código de Floating Widgets se mantiene deliberadamente como editor de código y no como Rich Text para no alterar snippets HTML/JavaScript.
+
+
+## Actualización SEO, Turnstile y Floating Widgets
+
+- `admin/seo.php` centraliza título/meta descripción, Google Site Verification, indexación, imagen social, `robots.txt`, `sitemap.xml` y Cloudflare Turnstile.
+- Cloudflare Turnstile se aplica al formulario público únicamente cuando está activado y existen Site Key + Secret Key válidas.
+- `admin/widgets.php` permite mantener WhatsApp y agregar múltiples widgets externos por código de instalación o URL embebible. Los widgets externos se fuerzan al lado contrario de WhatsApp para evitar cruces.
+- Los cambios usan la tabla genérica `settings`; no requieren migración ni cambio de esquema SQL.

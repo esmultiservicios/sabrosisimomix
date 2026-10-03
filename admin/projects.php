@@ -38,10 +38,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 $current=(string)$old->fetchColumn();
                 $image=$image?:$current;
                 $pdo->prepare('UPDATE projects SET title=?,category=?,description=?,image_path=?,external_url=?,sort_order=?,active=? WHERE id=?')
-                    ->execute([$title,trim((string)($_POST['category']??'')),trim((string)($_POST['description']??'')),$image,trim((string)($_POST['external_url']??'')),(int)($_POST['sort_order']??0),isset($_POST['active'])?1:0,$id]);
+                    ->execute([$title,trim((string)($_POST['category']??'')),rich_text_sanitize((string)($_POST['description']??'')),$image,trim((string)($_POST['external_url']??'')),(int)($_POST['sort_order']??0),isset($_POST['active'])?1:0,$id]);
             }else{
                 $pdo->prepare('INSERT INTO projects(title,category,description,image_path,external_url,sort_order,active) VALUES(?,?,?,?,?,?,?)')
-                    ->execute([$title,trim((string)($_POST['category']??'')),trim((string)($_POST['description']??'')),$image,trim((string)($_POST['external_url']??'')),(int)($_POST['sort_order']??0),isset($_POST['active'])?1:0]);
+                    ->execute([$title,trim((string)($_POST['category']??'')),rich_text_sanitize((string)($_POST['description']??'')),$image,trim((string)($_POST['external_url']??'')),(int)($_POST['sort_order']??0),isset($_POST['active'])?1:0]);
             }
             flash('success','Proyecto guardado.');
         }

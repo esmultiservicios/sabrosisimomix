@@ -159,3 +159,16 @@
 .analytics-hero{align-items:center}.analytics-clock{display:grid;text-align:right;padding:14px 16px;border:1px solid #e2e8f0;border-radius:15px;background:#fff}.analytics-clock small{font-size:10px;letter-spacing:.12em;color:#64748b}.analytics-clock strong{font-size:16px}.analytics-stats{grid-template-columns:repeat(4,minmax(0,1fr))}.analytics-summary{display:flex;gap:10px;flex-wrap:wrap}.analytics-summary span{padding:8px 11px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:12px}.analytics-summary b{color:#0f172a}.analytics-chart{height:230px;display:flex;align-items:end;gap:7px;padding:18px 6px 0;border-top:1px solid #eef2f7;overflow-x:auto}.analytics-bar-wrap{height:100%;min-width:26px;flex:1;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:7px}.analytics-bar{width:min(24px,72%);min-height:8px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,#2563eb,#1d4ed8);transition:.2s transform,.2s filter}.analytics-bar-wrap:hover .analytics-bar{transform:translateY(-2px);filter:brightness(1.08)}.analytics-bar-wrap small{font-size:9px;color:#94a3b8;writing-mode:vertical-rl;transform:rotate(180deg);height:38px}.data-table code{background:#f1f5f9;padding:4px 7px;border-radius:7px;font-size:11px}
 @media(max-width:900px){.analytics-stats{grid-template-columns:1fr 1fr}.analytics-clock{text-align:left}.admin-image-modal{padding:10px}.admin-image-modal__dialog{width:100%;max-height:calc(100vh - 20px)}.admin-image-modal__stage{padding:58px 10px 12px}.admin-image-modal__stage img{max-height:calc(100vh - 160px)}}
 @media(max-width:520px){.analytics-stats{grid-template-columns:1fr}}
+
+/* Final action menu rule: menu options stay visually neutral instead of filled blue. */
+.admin-app .cms-action-menu a,
+.admin-app .cms-action-menu button{background:transparent!important;color:#223246!important}
+.admin-app .cms-action-menu .action-icon{background:transparent!important;color:#315471!important;border:1px solid #e3e9ef!important}
+.admin-app .cms-action-menu a:hover,
+.admin-app .cms-action-menu button:hover{background:#f4f7fa!important;color:#0b5f70!important}
+.admin-app .cms-action-menu a:hover .action-icon,
+.admin-app .cms-action-menu button:hover .action-icon{background:#fff!important;color:#0b5f70!important;border-color:#cbd9e1!important}
+.admin-app .cms-action-menu .action-danger{color:#b42318!important}
+.admin-app .cms-action-menu .action-danger .action-icon{background:transparent!important;color:#b42318!important;border-color:#f1d7d3!important}
+.admin-app .cms-action-menu .action-danger:hover{background:#fff6f5!important;color:#9f2017!important}
+.admin-app .cms-action-menu .action-danger:hover .action-icon{background:#fff!important;color:#9f2017!important}

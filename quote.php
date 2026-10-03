@@ -22,7 +22,7 @@ try {
     $phone = trim((string) ($_POST['phone'] ?? ''));
     $email = trim((string) ($_POST['email'] ?? ''));
     $service = trim((string) ($_POST['service_needed'] ?? ''));
-    $message = trim((string) ($_POST['message'] ?? ''));
+    $message = rich_text_sanitize((string) ($_POST['message'] ?? ''));
     $address = trim((string) ($_POST['address'] ?? ''));
 
     if ($name === '' || $phone === '') {
@@ -36,6 +36,52 @@ try {
     if (trim((string) ($_POST['website'] ?? '')) !== '') {
         header('Location: ./?sent=1#cotizar');
         exit;
+    }
+
+    // Cloudflare Turnstile: only enforced when both keys are configured and the feature is enabled.
+    $turnstileEnabled = setting('turnstile_enabled', '0') === '1';
+    $turnstileSecret = trim((string) setting('turnstile_secret_key', ''));
+    $turnstileSiteKey = trim((string) setting('turnstile_site_key', ''));
+    if ($turnstileEnabled && $turnstileSecret !== '' && $turnstileSiteKey !== '') {
+        $token = trim((string) ($_POST['cf-turnstile-response'] ?? ''));
+        if ($token === '') {
+            throw new RuntimeException('Completa la verificación anti-spam antes de enviar.');
+        }
+        $payload = http_build_query([
+            'secret' => $turnstileSecret,
+            'response' => $token,
+            'remoteip' => (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
+        ]);
+        $responseBody = '';
+        if (function_exists('curl_init')) {
+            $ch = curl_init('https://challenges.cloudflare.com/turnstile/v0/siteverify');
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+            ]);
+            $responseBody = (string) curl_exec($ch);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            if ($responseBody === '' && $curlError !== '') {
+                throw new RuntimeException('No fue posible validar la protección anti-spam. Intenta nuevamente.');
+            }
+        } else {
+            $context = stream_context_create(['http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                'content' => $payload,
+                'timeout' => 10,
+            ]]);
+            $responseBody = (string) @file_get_contents('https://challenges.cloudflare.com/turnstile/v0/siteverify', false, $context);
+        }
+        $turnstileResult = json_decode($responseBody, true);
+        if (!is_array($turnstileResult) || empty($turnstileResult['success'])) {
+            throw new RuntimeException('La verificación anti-spam no fue válida. Intenta nuevamente.');
+        }
     }
 
     $files = normalized_files('attachments');

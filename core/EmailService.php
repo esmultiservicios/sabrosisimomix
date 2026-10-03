@@ -105,7 +105,7 @@ final class EmailTemplates {
             .$row('Correo',(string)($estimate['email']??''))
             .$row('Servicio',(string)($estimate['service_needed']??''))
             .$row('Dirección',(string)($estimate['address']??''))
-            .$row('Mensaje',(string)($estimate['message']??''))
+            .$row('Mensaje',rich_text_plain((string)($estimate['message']??'')))
             .$row('Adjuntos',$attachmentCount>0?$attachmentCount.' archivo(s)':'Sin adjuntos')
             .$row('Fecha',date('d/m/Y H:i'));
         $content='<p style="margin-top:0">Se recibió una nueva solicitud desde el sitio web.</p>'

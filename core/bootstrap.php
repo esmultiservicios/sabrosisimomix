@@ -95,6 +95,51 @@ function db(): PDO {
     return $pdo;
 }
 function h(mixed $v): string {return htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
+
+function rich_text_sanitize(string $html): string {
+    $html=str_replace("\0",'',$html);
+    do {
+        $before=$html;
+        $html=preg_replace('~<(script|style|iframe|object|embed|svg|math|form|input|button|textarea|select|option)\b[^>]*>.*?</\1\s*>~is','',$html)??'';
+    } while($before!==$html);
+    $html=preg_replace('/<!--.*?-->/s','',$html)??'';
+    $html=strip_tags($html,'<p><br><strong><b><em><i><u><s><ul><ol><li><blockquote><h2><h3><a>');
+    $html=preg_replace_callback(
+        '~<\s*(/?)\s*(p|br|strong|b|em|i|u|s|ul|ol|li|blockquote|h2|h3|a)\b([^>]*)>~i',
+        static function(array $m): string {
+            $closing=$m[1]==='/';
+            $tag=strtolower($m[2]);
+            if($closing)return $tag==='br'?'':'</'.$tag.'>';
+            if($tag!=='a')return '<'.$tag.'>';
+            $attrs=(string)($m[3]??'');
+            $href='';
+            if(preg_match('~\bhref\s*=\s*(["\'])(.*?)\1~is',$attrs,$hm))$href=html_entity_decode(trim($hm[2]),ENT_QUOTES|ENT_HTML5,'UTF-8');
+            elseif(preg_match('~\bhref\s*=\s*([^\s>]+)~i',$attrs,$hm))$href=html_entity_decode(trim($hm[1],"\"'"),ENT_QUOTES|ENT_HTML5,'UTF-8');
+            if($href===''||!preg_match('~^(?:https?://|mailto:|tel:|/|#)~i',$href))return '<a>';
+            return '<a href="'.h($href).'" target="_blank" rel="noopener noreferrer">';
+        },
+        $html
+    )??'';
+    return trim($html);
+}
+function rich_text_has_text(string $html): bool {
+    $text=html_entity_decode(strip_tags($html),ENT_QUOTES|ENT_HTML5,'UTF-8');
+    return (preg_replace('/[\s\x{00A0}]+/u','',$text)??'')!=='';
+}
+function rich_text_plain(string $html): string {
+    $safe=rich_text_sanitize($html);
+    $safe=preg_replace('~<(?:br|/p|/li|/blockquote|/h2|/h3)>~i',"\n",$safe)??$safe;
+    $text=html_entity_decode(strip_tags($safe),ENT_QUOTES|ENT_HTML5,'UTF-8');
+    $text=preg_replace('/[\t ]+/u',' ',$text)??$text;
+    $text=preg_replace('/\h*\R\h*/u',"\n",$text)??$text;
+    return trim(preg_replace('/\R{3,}/u',"\n\n",$text)??$text);
+}
+function rich_text_render(string $html): string {
+    $html=trim($html);
+    if($html==='')return '';
+    if(!preg_match('~</?(?:p|br|strong|b|em|i|u|s|ul|ol|li|blockquote|h2|h3|a)\b~i',$html))return nl2br(h($html));
+    return rich_text_sanitize($html);
+}
 function base_url(string $path=''): string {
     $base=rtrim((string)settings('site_url',''),'/');
     if($base===''){

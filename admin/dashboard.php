@@ -37,6 +37,7 @@ $pageTitle='Dashboard';$active='dashboard';require __DIR__.'/_header.php';
     <a class="quick-action-card" href="estimates.php"><span class="qa-icon">✉</span><span><strong>Solicitudes</strong><small>Revisar cotizaciones recibidas</small></span></a>
     <a class="quick-action-card" href="media.php"><span class="qa-icon">▧</span><span><strong>Media Library</strong><small>Administrar imágenes y archivos</small></span></a>
     <a class="quick-action-card" href="widgets.php"><span class="qa-icon">◉</span><span><strong>Widgets flotantes</strong><small>WhatsApp, chat y posiciones</small></span></a>
+    <a class="quick-action-card" href="seo.php"><span class="qa-icon">⌕</span><span><strong>SEO Manager</strong><small>Google, sitemap y anti-spam</small></span></a>
     <a class="quick-action-card" href="social.php"><span class="qa-icon">◎</span><span><strong>Redes sociales</strong><small>Canales, orden y ubicación</small></span></a>
     <a class="quick-action-card" href="email.php"><span class="qa-icon">@</span><span><strong>Correo</strong><small>SMTP, Graph y prueba</small></span></a>
   </div>

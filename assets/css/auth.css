@@ -9,3 +9,9 @@
 .auth-note{padding:13px 14px;border-radius:13px;background:var(--auth-soft);border:1px solid #f0dfcc;color:#6b5d52;font-size:13px;margin-bottom:16px}.auth-error{display:none}
 .auth-security{display:flex;gap:9px;align-items:flex-start;padding:12px 13px;border-radius:13px;background:#f7f8fa;color:#68707b;font-size:12px}.auth-security b{color:#1f2937}
 @media(max-width:520px){body.auth-page{padding:14px;align-items:center}.auth-card{padding:22px 18px;border-radius:22px}.auth-card h1{font-size:24px}.auth-row{align-items:flex-start;flex-direction:column;gap:10px}.auth-link{align-self:flex-start}}
+
+/* Keep one password visibility control: hide browser-native reveal/credential buttons. */
+.auth-page input[type="password"]::-ms-reveal,
+.auth-page input[type="password"]::-ms-clear{display:none!important}
+.auth-page input[type="password"]::-webkit-credentials-auto-fill-button,
+.auth-page input[type="password"]::-webkit-textfield-decoration-container{visibility:hidden!important;pointer-events:none!important;position:absolute!important;right:0!important}

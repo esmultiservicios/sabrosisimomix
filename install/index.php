@@ -266,6 +266,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'floating_widget_order' => '2',
             'floating_widget_label' => 'Chat',
             'floating_widget_code' => '',
+            'floating_widgets_json' => '[]',
+            'seo_title' => 'Sabrosísimo Mix | Eventos, comida y diversión',
+            'seo_description' => 'Taqueadas, pupusas, pastelitos, snacks, saltarines y atención para eventos en San Pedro Sula.',
+            'seo_indexing' => 'index-follow',
+            'google_site_verification' => '',
+            'seo_social_image' => '',
+            'turnstile_enabled' => '0',
+            'turnstile_site_key' => '',
+            'turnstile_secret_key' => '',
         ];
         $settingStmt = $pdo->prepare('INSERT INTO settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)');
         foreach ($settings as $k => $v) {

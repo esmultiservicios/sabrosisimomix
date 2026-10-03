@@ -1,0 +1,16 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/esmultiservicios/sabrosisimomix.esmultiservicios.com/
+    - /usr/bin/test -d "$DEPLOYPATH"
+    - /bin/cp index.php "$DEPLOYPATH/index.php"
+    - /bin/cp quote.php "$DEPLOYPATH/quote.php"
+    - /bin/cp robots.txt "$DEPLOYPATH/robots.txt"
+    - /bin/cp sitemap.xml "$DEPLOYPATH/sitemap.xml"
+    - /bin/cp -R admin "$DEPLOYPATH"
+    - /bin/cp -R assets "$DEPLOYPATH"
+    - /bin/cp -R core "$DEPLOYPATH"
+    - /bin/cp -R install "$DEPLOYPATH"
+    - /bin/cp -R config "$DEPLOYPATH"
+    - /bin/cp -R uploads "$DEPLOYPATH"
+    - /usr/bin/test -f "$DEPLOYPATH/.htaccess" || /bin/cp .htaccess "$DEPLOYPATH/.htaccess"

@@ -558,12 +558,24 @@ window.addEventListener('orientationchange',()=> {
     list.setAttribute('role','listbox');
     list.id='cms-select-'+index;
     button.setAttribute('aria-controls',list.id);
+
+    const searchWrap=document.createElement('div');
+    searchWrap.className='cms-select-search-wrap';
+    const search=document.createElement('input');
+    search.type='search';
+    search.className='cms-select-search';
+    search.placeholder='Buscar opción…';
+    search.autocomplete='off';
+    search.setAttribute('aria-label','Buscar opción');
+    searchWrap.appendChild(search);
+    list.appendChild(searchWrap);
+
     select.insertAdjacentElement('afterend',wrap);
     wrap.append(button,list);
     wrappers.push(wrap);
 
     const items=[];
-    const enabledIndexes=()=>items.map((item,i)=>item.disabled?-1:i).filter(i=>i>=0);
+    const enabledIndexes=()=>items.map((item,i)=>(item.disabled||item.hidden)?-1:i).filter(i=>i>=0);
     const focusItem=indexToFocus=>items[indexToFocus]?.focus();
     const openSelect=()=> {
       if(select.disabled)return;
@@ -572,7 +584,11 @@ window.addEventListener('orientationchange',()=> {
       button.setAttribute('aria-expanded','true');
       const enabled=enabledIndexes();
       const initial=enabled.includes(select.selectedIndex)?select.selectedIndex:enabled[0];
-      if(initial!==undefined)focusItem(initial);
+      search.value='';
+      items.forEach(item=>item.hidden=false);
+      if(initial!==undefined){
+        window.requestAnimationFrame(()=>search.focus({preventScroll:true}));
+      }
     };
     const selectIndex=optionIndex=> {
       const option=select.options[optionIndex];
@@ -624,6 +640,26 @@ window.addEventListener('orientationchange',()=> {
       });
       items.push(item);
       list.appendChild(item);
+    });
+
+    const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const filterOptions=()=> {
+      const term=normalize(search.value);
+      items.forEach(item=> {
+        item.hidden=!!term&&!normalize(item.textContent).includes(term);
+      });
+    };
+
+    search.addEventListener('input',filterOptions);
+    search.addEventListener('keydown',event=> {
+      if(event.key==='Escape'){
+        event.preventDefault();
+        closeSelect(wrap,true);
+      }else if(event.key==='ArrowDown'){
+        event.preventDefault();
+        const enabled=enabledIndexes();
+        if(enabled.length)focusItem(enabled[0]);
+      }
     });
 
     button.addEventListener('click',event=> {
@@ -1056,7 +1092,7 @@ document.querySelectorAll('.admin-header details').forEach(menu=>menu.addEventLi
     menu.style.top=Math.max(pad,top)+'px';
   };
 
-  document.querySelectorAll('.data-table td .actions').forEach((group,index)=> {
+  document.querySelectorAll('.data-table td .actions, .request-card .actions').forEach((group,index)=> {
     if(group.dataset.actionMenuReady==='1')return;
     const nodes=[...group.children].filter(el=>!el.matches('input[type="hidden"]'));
     if(!nodes.length)return;
@@ -1123,4 +1159,30 @@ document.querySelectorAll('.admin-header details').forEach(menu=>menu.addEventLi
   });
   window.addEventListener('resize',()=>{if(active)positionMenu(active)});
   document.addEventListener('scroll',()=>{if(active)positionMenu(active)},true);
+})();
+
+
+// One password visibility style across every authenticated admin form.
+(() => {
+  document.querySelectorAll('input[type="password"]').forEach((input) => {
+    if (input.closest('.admin-password-wrap')) return;
+    const parent = input.parentElement;
+    if (!parent) return;
+    const wrap = document.createElement('span');
+    wrap.className = 'admin-password-wrap';
+    parent.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'admin-password-toggle';
+    toggle.textContent = 'Mostrar';
+    toggle.setAttribute('aria-label', 'Mostrar contraseña');
+    toggle.addEventListener('click', () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggle.textContent = show ? 'Ocultar' : 'Mostrar';
+      toggle.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    });
+    wrap.appendChild(toggle);
+  });
 })();

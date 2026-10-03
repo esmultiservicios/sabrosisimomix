@@ -1,0 +1,217 @@
+/* ==========================================================================\n   Select2 Local - searchable, dependency-free select enhancement\n   ========================================================================== */
+
+.select2-local-native {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.select2-local {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    font: inherit;
+}
+
+.select2-local.is-open {
+    z-index: 500;
+}
+
+.select2-local__button {
+    width: 100%;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 44px 11px 13px;
+    border: 1px solid #d9d5d1;
+    border-radius: 12px;
+    background: #fff;
+    color: #17110f;
+    text-align: left;
+    font: inherit;
+    font-weight: 700;
+    line-height: 1.35;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.select2-local__button::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid #c93427;
+    border-bottom: 2px solid #c93427;
+    transform: translateY(-65%) rotate(45deg);
+    transform-origin: center;
+    transition: transform .16s ease;
+    pointer-events: none;
+}
+
+.select2-local.is-open .select2-local__button::after {
+    transform: translateY(-30%) rotate(225deg);
+}
+
+.select2-local__button:hover {
+    border-color: #bca99d;
+    box-shadow: 0 0 0 3px rgba(201, 52, 39, .07);
+}
+
+.select2-local__button:focus-visible,
+.select2-local.is-open .select2-local__button {
+    outline: none;
+    border-color: #c93427;
+    box-shadow: 0 0 0 3px rgba(201, 52, 39, .12);
+}
+
+.select2-local__dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 7px);
+    display: none;
+    overflow: hidden;
+    border: 1px solid #d9d5d1;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 22px 50px rgba(31, 18, 13, .18);
+}
+
+.select2-local.is-open .select2-local__dropdown {
+    display: block;
+}
+
+.select2-local.is-dropup .select2-local__dropdown {
+    top: auto;
+    bottom: calc(100% + 7px);
+}
+
+.select2-local__search-wrap {
+    padding: 10px;
+    border-bottom: 1px solid #eee6df;
+    background: #fffaf6;
+}
+
+.select2-local__search {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #d8cec6;
+    border-radius: 10px;
+    padding: 9px 12px 9px 38px;
+    background:
+        linear-gradient(135deg, transparent 45%, #7a6e68 46% 54%, transparent 55%) 17px 18px / 7px 7px no-repeat,
+        radial-gradient(circle at 15px 15px, transparent 5px, #7a6e68 5.5px 7px, transparent 7.5px) 0 0 / 30px 30px no-repeat,
+        #fff;
+    color: #17110f;
+    font: inherit;
+    outline: none;
+}
+
+.select2-local__search:focus {
+    border-color: #c93427;
+    box-shadow: 0 0 0 3px rgba(201, 52, 39, .1);
+}
+
+.select2-local__options {
+    max-height: 280px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px;
+}
+
+.select2-local__option {
+    width: 100%;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 11px;
+    border: 0;
+    border-radius: 9px;
+    background: #fff;
+    color: #17110f;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
+.select2-local__option:hover,
+.select2-local__option:focus-visible {
+    outline: none;
+    background: #c93427;
+    color: #fff;
+}
+
+.select2-local__option[aria-selected="true"] {
+    background: #c93427;
+    color: #fff;
+    font-weight: 800;
+}
+
+.select2-local__option[aria-selected="true"]::after {
+    content: "✓";
+    flex: 0 0 auto;
+    font-weight: 950;
+}
+
+.select2-local__option[hidden] {
+    display: none !important;
+}
+
+.select2-local__empty {
+    padding: 18px 12px;
+    color: #756d68;
+    text-align: center;
+    font-size: 14px;
+}
+
+.select2-local__button:disabled {
+    cursor: not-allowed;
+    opacity: .58;
+}
+
+@media (max-width: 650px) {
+    .select2-local__button {
+        min-height: 50px;
+    }
+
+    .select2-local__dropdown {
+        max-width: calc(100vw - 32px);
+    }
+
+    .select2-local__options {
+        max-height: 240px;
+    }
+}
+
+/* Premium search field: one clean magnifier, no layered/duplicated glyphs. */
+.select2-local__search-wrap{position:relative}
+.select2-local__search-wrap::before{
+    content:"";position:absolute;left:24px;top:50%;width:12px;height:12px;
+    border:2px solid #6f625c;border-radius:50%;transform:translateY(-58%);z-index:2;pointer-events:none;box-sizing:border-box
+}
+.select2-local__search-wrap::after{
+    content:"";position:absolute;left:35px;top:50%;width:7px;height:2px;border-radius:2px;
+    background:#6f625c;transform:translateY(4px) rotate(45deg);transform-origin:left center;z-index:2;pointer-events:none
+}
+.select2-local__search{
+    padding-left:42px!important;
+    background:#fff!important;
+    -webkit-appearance:none;appearance:none
+}
+.select2-local__search::-webkit-search-cancel-button,
+.select2-local__search::-webkit-search-decoration,
+.select2-local__search::-webkit-search-results-button,
+.select2-local__search::-webkit-search-results-decoration{-webkit-appearance:none;appearance:none;display:none}
