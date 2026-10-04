@@ -1,7 +1,7 @@
 <?php
 return array (
   'installed' => true,
-  'app_key' => '3a335f722a9c4c04103557c0033799c4f80d6c789db260e96532a6f3027bda41',
+  'app_key' => 'cf3fc781ca97af10735db179e5a920a373af6f48c217991ee984934d08475a12',
   'db' => 
   array (
     'host' => 'localhost',

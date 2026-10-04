@@ -1,5 +1,9 @@
 Options -Indexes
-DirectoryIndex index.php
-<FilesMatch "^(database\.sql|database-update\.sql|README\.txt|\.gitignore)$">
-  Require all denied
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^config/ - [F,L]
+RewriteRule ^core/ - [F,L]
+</IfModule>
+<FilesMatch "^(\.env|composer\.(json|lock)|README\.md)$">
+Require all denied
 </FilesMatch>

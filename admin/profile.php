@@ -1,302 +1,68 @@
 <?php
+declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 require_login();
 $pdo=db();
-$admin=current_admin();
-$error='';
-$st=$pdo->prepare('SELECT * FROM admin_users WHERE id=?');
-$st->execute([(int)$admin['id']]);
-$row=$st->fetch();
-if($_SERVER['REQUEST_METHOD']==='POST') {
-    verify_csrf();
-    $action=(string)($_POST['action']??'');
-    $current=(string)($_POST['current_password']??'');
-    $passwordActions=['profile','password','prepare_2fa','disable_2fa','reset_admin'];
+$me=current_admin();
 
-    if(in_array($action,$passwordActions,true)&&!password_verify($current,$row['password_hash']))$error='Current password is incorrect.';
-    elseif($action==='profile') {
+if($_SERVER['REQUEST_METHOD']==='POST'){
+    try{
+        verify_csrf();
+        $fullName=trim((string)($_POST['full_name']??''));
         $username=trim((string)($_POST['username']??''));
-        $full=trim((string)($_POST['full_name']??''));
         $email=trim((string)($_POST['email']??''));
-        if(strlen($username)<4)$error='Username must have at least 4 characters.';
-        elseif($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))$error='Enter a valid email address.';
-        else {
-            $avatar=$row['avatar_path']??'';
-            if(!empty($_FILES['avatar']['name']))$avatar=upload_image($_FILES['avatar'],'admin','avatar',5);
-            $up=$pdo->prepare('UPDATE admin_users SET username=?,full_name=?,email=?,avatar_path=? WHERE id=?');
-            $up->execute([$username,$full,$email,$avatar,$row['id']]);
-            $_SESSION['cr_admin_user']=$username;
-            flash('success','Profile updated.');
-            header('Location: profile.php');
-            exit;
+        $currentPassword=(string)($_POST['current_password']??'');
+        $newPassword=(string)($_POST['new_password']??'');
+        $confirmPassword=(string)($_POST['confirm_password']??'');
+
+        if($fullName===''||$username===''||!filter_var($email,FILTER_VALIDATE_EMAIL)){
+            throw new RuntimeException('Completa correctamente tu nombre, usuario y correo.');
         }
-    } elseif($action==='password') {
-        $n=(string)($_POST['new_password']??'');
-        $n2=(string)($_POST['new_password2']??'');
-        if(strlen($n)<10)$error='New password must have at least 10 characters.';
-        elseif($n!==$n2)$error='New passwords do not match.';
-        else {
-            $pdo->prepare('UPDATE admin_users SET password_hash=? WHERE id=?')->execute([password_hash($n,PASSWORD_DEFAULT),$row['id']]);
-            session_regenerate_id(true);
-            sync_admin_session();
-            $pdo->prepare('UPDATE admin_sessions SET revoked_at=NOW() WHERE admin_id=? AND session_hash<>? AND revoked_at IS NULL')->execute([$row['id'],session_fingerprint()]);
-            flash('success','Password updated and your other sessions were signed out.');
-            header('Location: profile.php');
-            exit;
-        }
-    } elseif($action==='prepare_2fa') {
-        $_SESSION['cr_pending_totp_secret']=new_totp_secret();
-        $_SESSION['cr_2fa_setup_verified_at']=time();
-        flash('success','Password verified. Scan the QR code or use the setup link, then enter the current 6-digit code.');
-        header('Location: profile.php#two-factor');
-        exit;
-    } elseif($action==='enable_2fa') {
-        $secret=(string)($_SESSION['cr_pending_totp_secret']??'');
-        $verifiedAt=(int)($_SESSION['cr_2fa_setup_verified_at']??0);
-        $code=trim((string)($_POST['totp_code']??''));
-        if($secret===''||$verifiedAt<=0||(time()-$verifiedAt)>600) {
-            unset($_SESSION['cr_pending_totp_secret'],$_SESSION['cr_2fa_setup_verified_at']);
-            $error='For security, the authenticator setup session expired. Enter your password once to start again.';
-        } elseif(!verify_totp($secret,$code)) {
-            $error='The authenticator code is not valid. Enter the current 6-digit code shown in your authenticator app.';
-        } else {
-            $pdo->prepare('UPDATE admin_users SET two_factor_secret_enc=?,two_factor_enabled=1 WHERE id=?')->execute([secret_encrypt($secret),$row['id']]);
-            unset($_SESSION['cr_pending_totp_secret'],$_SESSION['cr_2fa_setup_verified_at']);
-            log_activity('2fa_enable','Enabled two-factor authentication');
-            admin_notify('success','Two-factor authentication enabled','Two-factor authentication was enabled for '.$row['username'].'.','profile.php');
-            flash('success','Two-factor authentication is now enabled.');
-            header('Location: profile.php#two-factor');
-            exit;
-        }
-    } elseif($action==='disable_2fa') {
-        $pdo->prepare('UPDATE admin_users SET two_factor_secret_enc=NULL,two_factor_enabled=0 WHERE id=?')->execute([$row['id']]);
-        unset($_SESSION['cr_pending_totp_secret'],$_SESSION['cr_2fa_setup_verified_at']);
-        log_activity('2fa_disable','Disabled two-factor authentication');
-        admin_notify('warning','Two-factor authentication disabled','Two-factor authentication was disabled for '.$row['username'].'.','profile.php');
-        flash('success','Two-factor authentication disabled.');
-        header('Location: profile.php#two-factor');
-        exit;
-    } elseif($action==='reset_admin') {
-        if(!role_is_owner()) {
-            $error='Only the Owner can reset administrator ownership.';
-        } else {
-            $confirm=trim((string)($_POST['confirmation']??''));
-            if($confirm!=='RESET ADMIN')$error='Type RESET ADMIN exactly to confirm.';
-            else {
-                try {
-                    require_once __DIR__.'/../core/EmailService.php';
-                    $settings=settings();
-                    if(!empty($row['email'])&&filter_var($row['email'],FILTER_VALIDATE_EMAIL)) {
-                        (new EmailService())->sendWithFallback([2,1],$row['email'],'Administrator access reset',EmailTemplates::adminReset($row['full_name']?:$row['username'],$settings));
-                    }
-                } catch(Throwable $e) {
-                }
-                $pdo->exec('DELETE FROM admin_users');
-                $_SESSION=[];
-                session_destroy();
-                header('Location: setup.php?reset=1');
-                exit;
+        $dup=$pdo->prepare('SELECT id FROM admin_users WHERE (username=? OR email=?) AND id<>? LIMIT 1');
+        $dup->execute([$username,$email,(int)$me['id']]);
+        if($dup->fetch())throw new RuntimeException('El usuario o correo ya está siendo utilizado por otra cuenta.');
+
+        if($newPassword!==''){
+            if(strlen($newPassword)<8)throw new RuntimeException('La nueva contraseña debe contener al menos 8 caracteres.');
+            if($newPassword!==$confirmPassword)throw new RuntimeException('La confirmación de la nueva contraseña no coincide.');
+            if($currentPassword===''||!password_verify($currentPassword,(string)$me['password_hash'])){
+                throw new RuntimeException('La contraseña actual no es correcta.');
             }
+            $st=$pdo->prepare('UPDATE admin_users SET full_name=?,username=?,email=?,password_hash=? WHERE id=?');
+            $st->execute([$fullName,$username,$email,password_hash($newPassword,PASSWORD_DEFAULT),(int)$me['id']]);
+            log_activity('profile.password','Administrator updated profile and password');
+        }else{
+            $st=$pdo->prepare('UPDATE admin_users SET full_name=?,username=?,email=? WHERE id=?');
+            $st->execute([$fullName,$username,$email,(int)$me['id']]);
+            log_activity('profile.update','Administrator updated profile');
         }
+        flash('success','Perfil actualizado correctamente.');
+        header('Location: profile.php');exit;
+    }catch(Throwable $e){
+        flash('error',$e->getMessage());
+        header('Location: profile.php');exit;
     }
 }
-$pageTitle='Profile & Security';
-$active='profile';
-require __DIR__.'/_header.php';
-?>
 
-<div class="page-heading">
-<div>
-<p class="eyebrow">PROFILE & SECURITY</p>
-<h1>Your administrator account</h1>
-<p class="muted">Update your identity, login credentials and client handoff settings.</p>
-</div>
-</div><?php
-if($error):
+$me=current_admin();
+$pageTitle='Mi perfil';$active='';require __DIR__.'/_header.php';
 ?>
-<div class="alert error"><?=h($error)?>
-</div><?php
-endif;
-?>
-
-<div class="content-grid">
-<section class="panel animate-in">
-<div class="panel-heading">
-<div class="panel-icon"><?=icon('user')?>
-</div>
-<div>
-<h2>Profile information</h2>
-<p>This information appears in the admin header.</p>
-</div>
-</div>
-<form method="post" enctype="multipart/form-data">
-<input type="hidden" name="csrf" value="<?=h(csrf_token())?>
-">
-<input type="hidden" name="action" value="profile">
-<div class="two-col">
-<label>Full name<input name="full_name" value="<?=h($row['full_name']??'')?>
-">
-</label>
-<label>Username<input name="username" required value="<?=h($row['username'])?>
-">
-</label>
-</div>
-<label>Email<input type="email" name="email" value="<?=h($row['email']??'')?>
-">
-</label>
-<div class="upload-zone" data-upload-zone tabindex="0">
-<div class="upload-icon"><?=icon('image')?>
-</div>
-<strong>Profile picture</strong>
-<small data-upload-name>Drop, paste or choose image</small>
-<input type="file" name="avatar" accept="image/jpeg,image/png,image/webp">
-<div class="upload-preview" data-upload-preview>
-</div>
-</div>
-<label>Current password to save<input type="password" name="current_password" required autocomplete="current-password">
-</label>
-<div class="form-actions">
-<button>Save profile</button>
-</div>
-</form>
+<div class="page-heading"><div><p class="eyebrow">CUENTA</p><h1>Mi perfil</h1><p class="muted">Administra tus datos de acceso sin salir del panel.</p></div></div>
+<section class="panel profile-panel">
+  <div class="profile-overview">
+    <div class="profile-avatar-large"><?=h(strtoupper(substr((string)($me['full_name']??'A'),0,1)))?></div>
+    <div><h2><?=h($me['full_name']??'Administrador')?></h2><p><?=h($me['role_name']??'Usuario')?> · <?=h($me['email']??'')?></p></div>
+  </div>
+  <form method="post" class="form-grid profile-form" autocomplete="off">
+    <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+    <label><span>Nombre completo</span><input name="full_name" value="<?=h($me['full_name']??'')?>" required></label>
+    <label><span>Usuario</span><input name="username" value="<?=h($me['username']??'')?>" required></label>
+    <label class="full"><span>Correo</span><input type="email" name="email" value="<?=h($me['email']??'')?>" required></label>
+    <div class="full profile-password-title"><strong>Cambiar contraseña</strong><small>Déjala en blanco si no deseas cambiarla.</small></div>
+    <label><span>Contraseña actual</span><input type="password" name="current_password" autocomplete="current-password"></label>
+    <label><span>Nueva contraseña</span><input type="password" name="new_password" minlength="8" autocomplete="new-password"><small>Mínimo 8 caracteres.</small></label>
+    <label class="full"><span>Confirmar nueva contraseña</span><input type="password" name="confirm_password" minlength="8" autocomplete="new-password"></label>
+    <div class="full form-actions"><button type="submit">Guardar cambios</button><a class="button secondary" href="dashboard.php">Volver al dashboard</a></div>
+  </form>
 </section>
-<section class="panel animate-in">
-<div class="panel-heading">
-<div class="panel-icon"><?=icon('gear')?>
-</div>
-<div>
-<h2>Change password</h2>
-<p>Use a unique password with at least 10 characters.</p>
-</div>
-</div>
-<form method="post">
-<input type="hidden" name="csrf" value="<?=h(csrf_token())?>
-">
-<input type="hidden" name="action" value="password">
-<label>Current password<input type="password" name="current_password" required>
-</label>
-<label>New password<input type="password" name="new_password" required minlength="10">
-</label>
-<label>Repeat new password<input type="password" name="new_password2" required minlength="10">
-</label>
-<div class="form-actions">
-<button>Update password</button>
-</div>
-</form>
-</section>
-<section class="panel animate-in wide" id="two-factor">
-<div class="panel-heading">
-<div class="panel-icon"><?=icon('shield')?>
-</div>
-<div>
-<h2>Two-factor authentication</h2>
-<p>Add an authenticator app verification code after your password.</p>
-</div>
-</div><?php
-$twoFactor=(int)($row['two_factor_enabled']??0)===1;
-$pendingSecret=(string)($_SESSION['cr_pending_totp_secret']??'');
-$setupVerifiedAt=(int)($_SESSION['cr_2fa_setup_verified_at']??0);
-if(!$twoFactor&&$pendingSecret!==''&&($setupVerifiedAt<=0||(time()-$setupVerifiedAt)>600)) {
-    unset($_SESSION['cr_pending_totp_secret'],$_SESSION['cr_2fa_setup_verified_at']);
-    $pendingSecret='';
-}
-?>
-<div class="two-factor-status">
-<span class="badge <?=$twoFactor?'success':'closed'?>"><?=$twoFactor?'Enabled':'Not enabled'?></span>
-<p class="muted"><?=$twoFactor?'Your account requires an authenticator code at sign-in.':'Recommended for Owner and Administrator accounts.'?></p>
-</div><?php
-if(!$twoFactor&&!$pendingSecret):
-?>
-<form method="post">
-<input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-<input type="hidden" name="action" value="prepare_2fa">
-<label>Current password<input type="password" name="current_password" required autocomplete="current-password"></label>
-<p class="muted form-helper">Your password is requested only once to unlock the secure setup screen.</p>
-<div class="form-actions">
-<button>Set up authenticator</button>
-</div>
-</form><?php
-elseif(!$twoFactor):
-$issuerName=setting('admin_brand_name',"Castro's Ready Admin");
-$accountName=(string)($row['email']?:$row['username']);
-$uri='otpauth://totp/'.rawurlencode($issuerName).':'.rawurlencode($accountName).'?secret='.rawurlencode($pendingSecret).'&issuer='.rawurlencode($issuerName).'&digits=6&period=30';
-?>
-<div class="totp-setup-grid">
-<div class="totp-qr-card">
-<small>SCAN WITH YOUR AUTHENTICATOR APP</small>
-<div class="totp-qr" data-totp-qr="<?=h($uri)?>" aria-live="polite"></div>
-<p>Scan this QR code with Google Authenticator, Microsoft Authenticator, 1Password or another TOTP-compatible app.</p>
-</div>
-<div class="totp-setup">
-<div>
-<small>MANUAL SETUP KEY</small>
-<code><?=h($pendingSecret)?></code>
-<p>If you are setting this up from your phone, use the secure link below. On desktop, you can scan the QR code.</p>
-<a class="button secondary small" href="<?=h($uri)?>">Open authenticator app</a>
-</div>
-</div>
-</div>
-<form method="post">
-<input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-<input type="hidden" name="action" value="enable_2fa">
-<p class="muted form-helper secure-setup-note">Password already verified for this setup session. Enter only the current code from your authenticator app.</p>
-<label>6-digit code<input class="totp-input" name="totp_code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus></label>
-<div class="form-actions">
-<button>Verify & enable 2FA</button>
-</div>
-</form><?php
-else:
-?>
-<form method="post" data-swal-confirm="Disable two-factor authentication?" data-swal-text="Your account will return to password-only sign-in.">
-<input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-<input type="hidden" name="action" value="disable_2fa">
-<label>Current password<input type="password" name="current_password" required autocomplete="current-password"></label>
-<div class="form-actions">
-<button class="button danger-lite">Disable 2FA</button>
-</div>
-</form><?php
-endif;
-?>
-</section>
-<?php
-if(role_is_owner()):
-?>
-<section class="panel danger-panel wide animate-in" id="handoff">
-<div class="panel-heading">
-<div class="panel-icon">↻</div>
-<div>
-<h2>Reset administrator ownership</h2>
-<p>Use only when handing the website to a new owner.</p>
-</div>
-</div>
-<p class="muted">This removes administrator accounts and signs you out. It does <strong>not</strong> delete website content, gallery images, services, settings, email configuration or estimate requests.</p>
-<form method="post" data-confirm-text="RESET ADMIN" data-swal-confirm="Reset administrator ownership?" data-swal-text="All administrator accounts will be removed and you will be signed out. Website content will remain intact.">
-<input type="hidden" name="csrf" value="<?=h(csrf_token())?>
-">
-<input type="hidden" name="action" value="reset_admin">
-<div class="two-col">
-<label>Current password<input type="password" name="current_password" required>
-</label>
-<label>Type RESET ADMIN<input name="confirmation" required autocomplete="off">
-</label>
-</div>
-<div class="form-actions">
-<button class="button danger">Reset administrator setup</button>
-</div>
-</form>
-</section><?php
-endif;
-?>
-</div>
-<?php if(!$twoFactor&&$pendingSecret!==''): ?>
-<script src="<?=h(versioned_asset('../assets/vendor/qrcode-local.js', 'assets/vendor/qrcode-local.js'))?>"></script>
-<script>
-document.addEventListener('DOMContentLoaded',function(){
-    document.querySelectorAll('[data-totp-qr]').forEach(function(target){
-        if(window.CRQRCode&&target.dataset.totpQr)window.CRQRCode.renderSvg(target,target.dataset.totpQr);
-    });
-});
-</script>
-<?php endif; ?>
-<?php
-require __DIR__.'/_footer.php';
+<?php require __DIR__.'/_footer.php'; ?>

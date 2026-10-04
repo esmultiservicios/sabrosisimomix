@@ -18,6 +18,7 @@ try {
     PublicFormGuard::enforceValidationRateLimit();
     $email = (string) ($_POST['email'] ?? '');
     $result = PublicFormGuard::validateEmail($email, true, true);
+    PublicFormGuard::recordValidationEvent($email, $result, 'realtime');
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $e) {
     http_response_code(429);

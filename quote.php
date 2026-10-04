@@ -48,6 +48,7 @@ try {
     }
 
     $emailValidation = PublicFormGuard::validateEmail($email, true, true);
+    PublicFormGuard::recordValidationEvent($email, $emailValidation, 'submit');
     if (!$emailValidation['ok']) {
         throw new RuntimeException((string) $emailValidation['message']);
     }

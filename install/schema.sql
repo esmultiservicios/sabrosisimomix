@@ -1,6 +1,8 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS=0;
 
+-- Esquema real del proyecto: admin_roles usa únicamente id + role_name.
+-- No agregar role_key ni columnas de otros proyectos.
 CREATE TABLE IF NOT EXISTS admin_roles (
   id INT AUTO_INCREMENT PRIMARY KEY,
   role_name VARCHAR(80) NOT NULL UNIQUE
@@ -180,6 +182,45 @@ CREATE TABLE IF NOT EXISTS site_visits (
   INDEX idx_site_visits_visited(visited_at),
   INDEX idx_site_visits_visitor(visitor_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS public_rate_limits (
+  bucket_key CHAR(64) PRIMARY KEY,
+  bucket VARCHAR(80) NOT NULL,
+  hits INT UNSIGNED NOT NULL DEFAULT 0,
+  window_started_at DATETIME NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_public_rate_limits_bucket(bucket),
+  INDEX idx_public_rate_limits_window(window_started_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS email_validation_events (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  email_hash CHAR(64) NOT NULL,
+  domain VARCHAR(253) NOT NULL DEFAULT '',
+  result_status VARCHAR(40) NOT NULL,
+  source VARCHAR(40) NOT NULL DEFAULT 'form',
+  dns_checked TINYINT(1) NOT NULL DEFAULT 0,
+  external_checked TINYINT(1) NOT NULL DEFAULT 0,
+  external_provider VARCHAR(120) NULL,
+  latency_ms INT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_email_validation_created(created_at),
+  INDEX idx_email_validation_status(result_status),
+  INDEX idx_email_validation_domain(domain),
+  INDEX idx_email_validation_hash(email_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO settings(setting_key,setting_value) VALUES
+('email_validation_api_enabled','0'),
+('email_validation_api_name',''),
+('email_validation_api_url',''),
+('email_validation_api_method','GET'),
+('email_validation_api_auth','bearer'),
+('email_validation_api_key',''),
+('email_validation_api_key_name','api_key'),
+('email_validation_api_email_field','email'),
+('email_validation_api_timeout','4');
 
 CREATE TABLE IF NOT EXISTS activity_log (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
