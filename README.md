@@ -94,3 +94,11 @@ Por seguridad, el servidor vuelve a sanear el contenido mediante `rich_text_sani
 - Cloudflare Turnstile se aplica al formulario público únicamente cuando está activado y existen Site Key + Secret Key válidas.
 - `admin/widgets.php` permite mantener WhatsApp y agregar múltiples widgets externos por código de instalación o URL embebible. Los widgets externos se fuerzan al lado contrario de WhatsApp para evitar cruces.
 - Los cambios usan la tabla genérica `settings`; no requieren migración ni cambio de esquema SQL.
+
+## Protección avanzada del formulario público
+
+El formulario de cotización valida el correo en frontend y backend antes de aceptar una solicitud. Incluye formato, sugerencias de dominios frecuentes, existencia del dominio, registros MX, bloqueo de proveedores temporales, honeypot, rate limit por IP/sesión, detección básica de contenido automatizado y soporte para Cloudflare Turnstile.
+
+Existe además un endpoint interno `validate-email.php` para la validación en tiempo real. Desde **Admin > SEO Manager** puede activarse opcionalmente un servicio externo de validación de buzón mediante URL/API Key. Si ese proveedor externo falla o queda fuera de línea, el sistema aplica fallback y no bloquea automáticamente a un cliente legítimo.
+
+No se envía ningún correo de confirmación al visitante para verificar su dirección.

@@ -10136,3 +10136,57 @@ table {
         width: 42px;
     }
 }
+
+
+/* ==========================================================================\n   Legacy/admin rich editor responsive hardening\n   ========================================================================== */
+.rich-editor,
+.rich-editor * { min-width: 0; }
+.rich-editor { max-width: 100%; }
+.rich-editor-content {
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+@media (max-width: 768px) {
+    .rich-editor-toolbar {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 5px;
+        padding: 8px;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+    .rich-editor-toolbar button {
+        flex: 0 0 auto;
+        min-width: 38px;
+        min-height: 38px;
+        padding: 7px 9px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    .rich-editor-content {
+        min-height: 160px;
+        max-height: min(44vh, 360px);
+        padding: 14px;
+        font-size: 15px;
+        line-height: 1.55;
+    }
+}
+@media (max-width: 430px) {
+    .rich-editor-toolbar { padding: 7px; }
+    .rich-editor-toolbar button {
+        min-height: 36px;
+        min-width: 36px;
+        padding: 6px 8px;
+        font-size: 11.5px;
+    }
+    .rich-editor-content {
+        min-height: 145px;
+        max-height: 300px;
+        padding: 13px;
+        font-size: 15px;
+    }
+}

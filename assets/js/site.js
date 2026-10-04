@@ -360,3 +360,222 @@ document.querySelectorAll('[data-public-notify]').forEach((element) => {
     window.addEventListener('load', scheduleUpdate, { once: true });
     scheduleUpdate();
 })();
+
+(() => {
+    const field = document.querySelector('[data-email-validation]');
+    const form = field?.closest('form');
+    const input = field?.querySelector('input[type="email"]');
+    const status = field?.querySelector('[data-email-status]');
+    const suggestionButton = field?.querySelector('[data-email-suggestion]');
+
+    if (!field || !form || !input || !status || !suggestionButton) {
+        return;
+    }
+
+    let timer = null;
+    let controller = null;
+    let validationState = 'idle';
+    let lastValidatedValue = '';
+    let currentSuggestion = '';
+
+    const commonSuggestions = {
+        'gmail.con': 'gmail.com',
+        'gmail.co': 'gmail.com',
+        'gmial.com': 'gmail.com',
+        'gmal.com': 'gmail.com',
+        'gamil.com': 'gmail.com',
+        'hotmal.com': 'hotmail.com',
+        'hotmail.con': 'hotmail.com',
+        'outlook.con': 'outlook.com',
+        'outlok.com': 'outlook.com',
+        'yahoo.con': 'yahoo.com',
+        'yaho.com': 'yahoo.com',
+        'icloud.con': 'icloud.com',
+    };
+
+    const normalize = (value) => value.trim().toLowerCase().replace(/\s+/g, '');
+
+    const basicFormatValid = (value) => {
+        if (!value || value.length > 254 || /\s/.test(value)) {
+            return false;
+        }
+        return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(value);
+    };
+
+    const localSuggestion = (value) => {
+        const parts = value.split('@');
+        if (parts.length !== 2) {
+            return '';
+        }
+        const replacement = commonSuggestions[parts[1].toLowerCase()];
+        return replacement ? `${parts[0]}@${replacement}` : '';
+    };
+
+    const render = (state, message = '', suggestion = '') => {
+        validationState = state;
+        field.classList.remove('is-checking', 'is-valid', 'is-invalid', 'has-suggestion');
+        suggestionButton.hidden = true;
+        currentSuggestion = suggestion || '';
+
+        if (state === 'checking') {
+            field.classList.add('is-checking');
+        } else if (state === 'valid') {
+            field.classList.add('is-valid');
+        } else if (state === 'suggestion') {
+            field.classList.add('has-suggestion');
+        } else if (state === 'invalid') {
+            field.classList.add('is-invalid');
+        }
+
+        status.textContent = message;
+        input.setAttribute('aria-invalid', state === 'invalid' || state === 'suggestion' ? 'true' : 'false');
+
+        if (suggestion) {
+            suggestionButton.textContent = `Usar ${suggestion}`;
+            suggestionButton.hidden = false;
+        }
+    };
+
+    const validateRemote = async (value, force = false) => {
+        const normalized = normalize(value);
+
+        if (!normalized) {
+            lastValidatedValue = '';
+            render('idle', '');
+            return false;
+        }
+
+        if (!basicFormatValid(normalized)) {
+            lastValidatedValue = normalized;
+            render('invalid', 'Ingresa un correo electrónico válido. Ejemplo: nombre@empresa.com');
+            return false;
+        }
+
+        const suggested = localSuggestion(normalized);
+        if (suggested && suggested !== normalized) {
+            lastValidatedValue = normalized;
+            render('suggestion', `¿Quisiste escribir ${suggested}?`, suggested);
+            return false;
+        }
+
+        if (!force && normalized === lastValidatedValue && validationState === 'valid') {
+            return true;
+        }
+
+        controller?.abort();
+        controller = new AbortController();
+        render('checking', 'Comprobando dominio y recepción de correo…');
+
+        try {
+            const body = new URLSearchParams({ email: normalized });
+            const response = await fetch('validate-email.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body,
+                credentials: 'same-origin',
+                signal: controller.signal,
+            });
+            const data = await response.json();
+            lastValidatedValue = normalized;
+
+            if (data.suggestion) {
+                render('suggestion', data.message || `¿Quisiste escribir ${data.suggestion}?`, data.suggestion);
+                return false;
+            }
+
+            if (!data.ok) {
+                render('invalid', data.message || 'Revisa el correo electrónico e inténtalo nuevamente.');
+                return false;
+            }
+
+            input.value = normalized;
+            render('valid', 'Correo válido');
+            return true;
+        } catch (error) {
+            if (error?.name === 'AbortError') {
+                return false;
+            }
+            // Client-side service failure should not create a dead-end; backend performs the definitive check.
+            validationState = 'unknown';
+            field.classList.remove('is-checking', 'is-valid', 'is-invalid', 'has-suggestion');
+            status.textContent = 'La comprobación en línea no respondió. Validaremos nuevamente al enviar.';
+            input.removeAttribute('aria-invalid');
+            return true;
+        }
+    };
+
+    input.addEventListener('input', () => {
+        window.clearTimeout(timer);
+        const value = normalize(input.value);
+        input.value = value;
+
+        if (!value) {
+            render('idle', '');
+            return;
+        }
+
+        if (!basicFormatValid(value)) {
+            const suggested = localSuggestion(value);
+            if (suggested) {
+                render('suggestion', `¿Quisiste escribir ${suggested}?`, suggested);
+            } else {
+                render('invalid', 'Ingresa un correo electrónico válido. Ejemplo: nombre@empresa.com');
+            }
+            return;
+        }
+
+        const suggested = localSuggestion(value);
+        if (suggested) {
+            render('suggestion', `¿Quisiste escribir ${suggested}?`, suggested);
+            return;
+        }
+
+        render('checking', 'Listo para comprobar el dominio…');
+        timer = window.setTimeout(() => validateRemote(value), 650);
+    });
+
+    input.addEventListener('blur', () => {
+        window.clearTimeout(timer);
+        if (input.value.trim()) {
+            validateRemote(input.value);
+        }
+    });
+
+    suggestionButton.addEventListener('click', () => {
+        if (!currentSuggestion) {
+            return;
+        }
+        input.value = currentSuggestion;
+        input.focus({ preventScroll: true });
+        validateRemote(currentSuggestion, true);
+    });
+
+    form.addEventListener('submit', async (event) => {
+        if (form.dataset.emailValidationSubmitting === '1') {
+            return;
+        }
+
+        event.preventDefault();
+        window.clearTimeout(timer);
+        const valid = await validateRemote(input.value, true);
+
+        if (!valid && validationState !== 'unknown') {
+            input.focus({ preventScroll: false });
+            return;
+        }
+
+        form.dataset.emailValidationSubmitting = '1';
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
+    });
+
+    if (input.value.trim()) {
+        validateRemote(input.value);
+    }
+})();

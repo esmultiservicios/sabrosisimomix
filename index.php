@@ -389,7 +389,8 @@ record_public_visit((string)($_SERVER['REQUEST_URI'] ?? '/'));
         </div>
         <form class="quote-form" method="post" action="quote.php" enctype="multipart/form-data">
             <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-            <input class="hp" name="website" tabindex="-1" autocomplete="off">
+            <input type="hidden" name="form_started_at" value="<?= time() ?>">
+            <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
             <?php if (isset($_GET['sent'])): ?><div hidden data-public-notify data-type="success" data-message="¡Gracias! Recibimos tu solicitud y podremos darle seguimiento."></div><?php endif; ?><?php if ($quoteError): ?><div hidden data-public-notify data-type="error" data-message="<?= h($quoteError) ?>"></div><?php endif; ?>
 
             <div class="field-row">
@@ -397,7 +398,15 @@ record_public_visit((string)($_SERVER['REQUEST_URI'] ?? '/'));
                 <label>Teléfono<input name="phone" value="<?= h($quoteOld['phone'] ?? '') ?>" required></label>
             </div>
             <div class="field-row">
-                <label>Correo<input type="email" name="email" value="<?= h($quoteOld['email'] ?? '') ?>"></label>
+                <div class="quote-field email-validation-field" data-email-validation>
+                    <label for="quote-email">Correo</label>
+                    <div class="email-input-wrap">
+                        <input id="quote-email" type="email" name="email" value="<?= h($quoteOld['email'] ?? '') ?>" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" required aria-describedby="quote-email-status">
+                        <span class="email-validation-indicator" data-email-indicator aria-hidden="true"></span>
+                    </div>
+                    <div class="email-validation-feedback" id="quote-email-status" data-email-status aria-live="polite"></div>
+                    <button class="email-suggestion" type="button" data-email-suggestion hidden></button>
+                </div>
                 <label>Servicio
                     <select name="service_needed">
                         <option value="">Selecciona una opción</option>

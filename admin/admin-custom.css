@@ -495,3 +495,31 @@
 
 @media(max-width:1000px){.admin-app .seo-layout{grid-template-columns:1fr}.admin-app .seo-main-card,.admin-app .seo-side,.admin-app .seo-social-card,.admin-app .seo-tech-card,.admin-app .seo-turnstile-card{grid-column:1}.admin-app .widget-toggle-grid{grid-template-columns:1fr}}
 @media(max-width:700px){.admin-app .seo-hero{align-items:flex-start;flex-direction:column}.admin-app .seo-score{width:100%}.admin-app .seo-form-grid{grid-template-columns:1fr}.admin-app .seo-form-grid .full{grid-column:1}.admin-app .share-preview{grid-template-columns:1fr}.admin-app .share-preview img,.admin-app .share-preview-placeholder{width:100%;height:190px}.admin-app .external-widget-head{align-items:flex-start;flex-direction:column}.admin-app .external-widget-head .button{width:100%}.admin-app .widget-info-box{display:grid}.admin-app .widget-info-box strong{white-space:normal}}
+
+/* Email validation / anti-spam settings */
+.admin-app .email-api-settings {
+    display: grid;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.admin-app .seo-api-note {
+    padding: 14px 16px;
+    border: 1px solid #cfe4eb;
+    border-radius: 14px;
+    background: #f2fbfd;
+    color: #35596a;
+    line-height: 1.55;
+}
+
+.admin-app .seo-api-note strong {
+    color: #063a59;
+}
+
+.admin-app .email-api-settings code {
+    padding: 2px 5px;
+    border-radius: 6px;
+    background: #eef3f7;
+    color: #103b56;
+    font-size: .92em;
+}

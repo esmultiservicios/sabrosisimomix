@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/core/bootstrap.php';
 require_once __DIR__ . '/core/EmailService.php';
+require_once __DIR__ . '/core/PublicFormGuard.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ./');
@@ -20,22 +21,35 @@ try {
 
     $name = trim((string) ($_POST['full_name'] ?? ''));
     $phone = trim((string) ($_POST['phone'] ?? ''));
-    $email = trim((string) ($_POST['email'] ?? ''));
+    $email = PublicFormGuard::normalizeEmail((string) ($_POST['email'] ?? ''));
     $service = trim((string) ($_POST['service_needed'] ?? ''));
     $message = rich_text_sanitize((string) ($_POST['message'] ?? ''));
     $address = trim((string) ($_POST['address'] ?? ''));
 
-    if ($name === '' || $phone === '') {
-        throw new RuntimeException('Completa tu nombre y teléfono.');
-    }
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        throw new RuntimeException('Escribe un correo válido.');
+    if ($name === '' || $phone === '' || $email === '') {
+        throw new RuntimeException('Completa tu nombre, teléfono y correo electrónico.');
     }
 
-    // Honeypot anti-spam.
+    // Honeypot anti-spam: bots receive a harmless success response without storing anything.
     if (trim((string) ($_POST['website'] ?? '')) !== '') {
         header('Location: ./?sent=1#cotizar');
         exit;
+    }
+
+    PublicFormGuard::enforceSubmissionRateLimit();
+
+    $startedAt = (int) ($_POST['form_started_at'] ?? 0);
+    if ($startedAt > 0 && (time() - $startedAt) < 2) {
+        throw new RuntimeException('Espera un momento antes de enviar el formulario.');
+    }
+
+    if (PublicFormGuard::looksAutomated($name, $phone, $email, $message)) {
+        throw new RuntimeException('No pudimos aceptar este contenido. Revisa la información e inténtalo nuevamente.');
+    }
+
+    $emailValidation = PublicFormGuard::validateEmail($email, true, true);
+    if (!$emailValidation['ok']) {
+        throw new RuntimeException((string) $emailValidation['message']);
     }
 
     // Cloudflare Turnstile: only enforced when both keys are configured and the feature is enabled.

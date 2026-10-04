@@ -5,6 +5,7 @@ deployment:
     - /usr/bin/test -d "$DEPLOYPATH"
     - /bin/cp index.php "$DEPLOYPATH/index.php"
     - /bin/cp quote.php "$DEPLOYPATH/quote.php"
+    - /bin/cp validate-email.php "$DEPLOYPATH/validate-email.php"
     - /bin/cp robots.txt "$DEPLOYPATH/robots.txt"
     - /bin/cp sitemap.xml "$DEPLOYPATH/sitemap.xml"
     - /bin/cp -R admin "$DEPLOYPATH"

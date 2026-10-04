@@ -98,14 +98,14 @@
 
         toolbar.appendChild(group(...formatButtons.map(([cmd, html, label]) => button(cmd, html, label))));
         toolbar.appendChild(group(
-            button('insertUnorderedList', '• Lista', 'Lista con viñetas'),
-            button('insertOrderedList', '1. Lista', 'Lista numerada'),
+            button('insertUnorderedList', '<span class="cms-rte__ico" aria-hidden="true">•</span><span class="cms-rte__label">Lista</span>', 'Lista con viñetas'),
+            button('insertOrderedList', '<span class="cms-rte__ico" aria-hidden="true">1.</span><span class="cms-rte__label">Lista</span>', 'Lista numerada'),
             button('formatBlock', '❝', 'Cita', 'blockquote')
         ));
         const linkToggle = document.createElement('button');
         linkToggle.type = 'button';
         linkToggle.className = 'cms-rte__link-toggle';
-        linkToggle.innerHTML = '🔗';
+        linkToggle.innerHTML = '<span class="cms-rte__ico" aria-hidden="true">↗</span><span class="cms-rte__label">Enlace</span>';
         linkToggle.setAttribute('aria-label', 'Agregar enlace');
         linkToggle.title = 'Agregar enlace';
         toolbar.appendChild(group(

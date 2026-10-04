@@ -68,6 +68,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $turnstileSecret=trim((string)($_POST['turnstile_secret_key']??''));
         if($turnstileSecret!=='') save_setting('turnstile_secret_key',$turnstileSecret);
 
+        save_setting('email_validation_api_enabled',isset($_POST['email_validation_api_enabled'])?'1':'0');
+        save_setting('email_validation_api_url',trim((string)($_POST['email_validation_api_url']??'')));
+        save_setting('email_validation_api_timeout',(string)max(2,min(8,(int)($_POST['email_validation_api_timeout']??4))));
+        $emailValidationApiKey=trim((string)($_POST['email_validation_api_key']??''));
+        if($emailValidationApiKey!=='') save_setting('email_validation_api_key',$emailValidationApiKey);
+
         if(isset($_FILES['seo_social_image']) && (int)$_FILES['seo_social_image']['error']!==UPLOAD_ERR_NO_FILE){
             $file=$_FILES['seo_social_image'];
             if((int)$file['error']!==UPLOAD_ERR_OK) throw new RuntimeException('No se pudo recibir la imagen social.');
@@ -102,6 +108,10 @@ $socialImage=(string)setting('seo_social_image','');
 $turnstileEnabled=setting('turnstile_enabled','0')==='1';
 $turnstileSiteKey=(string)setting('turnstile_site_key','');
 $turnstileHasSecret=(string)setting('turnstile_secret_key','')!=='';
+$emailValidationApiEnabled=setting('email_validation_api_enabled','0')==='1';
+$emailValidationApiUrl=(string)setting('email_validation_api_url','');
+$emailValidationApiHasKey=(string)setting('email_validation_api_key','')!=='';
+$emailValidationApiTimeout=max(2,min(8,(int)setting('email_validation_api_timeout','4')));
 $robotsExists=is_file(ROOT_DIR.'/robots.txt');
 $sitemapExists=is_file(ROOT_DIR.'/sitemap.xml');
 $titleLen=strlen($seoTitle);$descLen=strlen($seoDescription);
@@ -161,6 +171,22 @@ $pageTitle='SEO Manager';$active='seo';require __DIR__.'/_header.php';
   <button type="submit" name="action" value="regenerate" class="button secondary">⚙ Regenerar robots y sitemap</button>
 </section>
 
+
+<section class="panel seo-turnstile-card full">
+  <div class="section-heading"><div><p class="eyebrow">VALIDACIÓN DE CORREO</p><h2>Filtro avanzado contra correos falsos</h2><p>El formulario valida formato, errores frecuentes, dominio, MX y correos temporales antes de aceptar una solicitud.</p></div><span class="status-pill is-on">Integrado</span></div>
+  <div class="seo-check ok"><span>✓</span><strong>Formato + sugerencias</strong><small>Activo</small></div>
+  <div class="seo-check ok"><span>✓</span><strong>Dominio + registros MX/DNS</strong><small>Activo</small></div>
+  <div class="seo-check ok"><span>✓</span><strong>Bloqueo de correo temporal + rate limit + honeypot</strong><small>Activo</small></div>
+  <div class="email-api-settings">
+    <label class="toggle-row"><input type="checkbox" name="email_validation_api_enabled" <?=$emailValidationApiEnabled?'checked':''?>><span>Usar también un servicio/API externo de verificación de buzón</span></label>
+    <div class="form-grid">
+      <label>URL del servicio<input type="url" name="email_validation_api_url" value="<?=h($emailValidationApiUrl)?>" placeholder="https://api.ejemplo.com/verify?email={email}&key={key}"><small>Usa <code>{email}</code> para el correo y, si aplica, <code>{key}</code> para la clave. Si el proveedor está caído, el formulario continúa con las validaciones locales.</small></label>
+      <label>API Key<input type="password" name="email_validation_api_key" value="" autocomplete="new-password" placeholder="<?=$emailValidationApiHasKey?'Guardada · escribe solo para reemplazarla':'Clave opcional del proveedor'?>"><small><?=$emailValidationApiHasKey?'La clave ya está guardada.':'Solo se utiliza del lado del servidor.'?></small></label>
+      <label>Timeout<select name="email_validation_api_timeout"><option value="2" <?=$emailValidationApiTimeout===2?'selected':''?>>2 segundos</option><option value="4" <?=$emailValidationApiTimeout===4?'selected':''?>>4 segundos</option><option value="6" <?=$emailValidationApiTimeout===6?'selected':''?>>6 segundos</option><option value="8" <?=$emailValidationApiTimeout===8?'selected':''?>>8 segundos</option></select><small>Recomendado: 4 segundos para no hacer lento el formulario.</small></label>
+    </div>
+    <div class="seo-api-note"><strong>Fallback seguro:</strong> si la API externa no responde, no se bloquea automáticamente a un cliente legítimo. El servidor conserva formato, dominio, MX/DNS, correo temporal, rate limit, honeypot y Turnstile.</div>
+  </div>
+</section>
 <section class="panel seo-turnstile-card full">
   <div class="section-heading"><div><p class="eyebrow">CLOUDFLARE TURNSTILE</p><h2>Protección anti-spam del formulario</h2><p>Agrega una validación invisible/ligera antes de aceptar solicitudes públicas.</p></div><span class="status-pill <?=$turnstileEnabled?'is-on':''?>"><?=$turnstileEnabled?'Activo':'Desactivado'?></span></div>
   <label class="toggle-row"><input type="checkbox" name="turnstile_enabled" <?=$turnstileEnabled?'checked':''?>><span>Activar Cloudflare Turnstile en el formulario de cotización</span></label>
