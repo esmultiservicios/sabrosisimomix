@@ -1,491 +1,889 @@
 <?php
 declare(strict_types=1);
-if (!is_file(__DIR__ . '/config/install.lock') || !is_file(__DIR__ . '/config/config.php')) {
+session_start();
+require __DIR__.'/config/bootstrap.php';
+require_once __DIR__.'/core/PublicFormProtection.php';
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+}
+if(!config_ready()) {
     header('Location: install/');
     exit;
 }
-require_once __DIR__ . '/core/public.php';
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-if (setting('maintenance_mode', '0') === '1' && !isset($_GET['preview'])) {
-    http_response_code(503);
-    ?>
-    <!doctype html>
-    <html lang="es">
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Mantenimiento</title>
-    <style>
-        body{margin:0;min-height:100vh;display:grid;place-items:center;background:#17110f;color:#fff;font:16px system-ui;text-align:center}
-        .box{max-width:600px;padding:30px}
-        .box img{max-width:340px;width:80%}
-    </style>
-    <div class="box">
-        <img src="assets/images/branding/logo-negro-slogan.jpg" alt="Sabrosísimo Mix">
-        <h1>Volvemos en un momento</h1>
-        <p>Estamos preparando algo sabroso para ti.</p>
-    </div>
-    </html>
-    <?php
-    exit;
-}
-
-$services = public_list('services');
-$projects = public_list('projects');
-$areas = public_list('service_areas');
-$tips = public_list('tips');
-$videos = public_list('videos');
-function display_hn_phone(string $phone): string {
-    $phone=trim($phone);
-    if($phone==='') return '';
-    $digits=preg_replace('/\D+/','',$phone)??'';
-    if(strlen($digits)===8) return '+504 '.substr($digits,0,4).'-'.substr($digits,4);
-    if(strlen($digits)===11 && str_starts_with($digits,'504')) return '+504 '.substr($digits,3,4).'-'.substr($digits,7);
-    return $phone;
-}
-function public_display_image_path(string $path): string {
-    $normalized = ltrim(str_replace('\\', '/', trim($path)), './');
-    $basename = strtolower(basename($normalized));
-    if (in_array($basename, ['logo-principal.jpg', 'sabrosisimo-logo-reference.png'], true)) {
-        return 'assets/images/brand-reference-banner.jpg';
-    }
-    return $normalized;
-}
-$phone1 = display_hn_phone((string)setting('phone_primary', '+504 3273-5251'));
-$phone2 = display_hn_phone((string)setting('phone_secondary', '+504 8809-9003'));
-$wa = preg_replace('/\D+/', '', (string) setting('whatsapp', '50488099003'));
-$allowedWidgetPositions = ['bottom-right','bottom-left','top-right','top-left'];
-$waWidgetEnabled = setting('floating_whatsapp_enabled','1') === '1';
-$waWidgetPosition = (string) setting('floating_whatsapp_position','bottom-right');
-if (!in_array($waWidgetPosition,$allowedWidgetPositions,true)) $waWidgetPosition='bottom-right';
-$waWidgetOrder = max(1,min(20,(int)setting('floating_whatsapp_order','1')));
-$waWidgetOffset = ($waWidgetOrder - 1) * 70;
-$externalWidgetsDecoded = json_decode((string)setting('floating_widgets_json',''), true);
-$externalWidgets = is_array($externalWidgetsDecoded) ? array_values(array_filter($externalWidgetsDecoded, 'is_array')) : [];
-if (!$externalWidgets && trim((string)setting('floating_widget_code','')) !== '') {
-    $externalWidgets[] = [
-        'enabled' => setting('floating_widget_enabled','0') === '1',
-        'name' => (string)setting('floating_widget_label','Chat'),
-        'install_type' => 'code',
-        'code' => (string)setting('floating_widget_code',''),
-        'url' => '',
-        'position' => (string)setting('floating_widget_position','bottom-left'),
-        'order' => (int)setting('floating_widget_order','2'),
-        'desktop' => true,
-        'mobile' => true,
-    ];
-}
-foreach ($externalWidgets as &$widget) {
-    $position = (string)($widget['position'] ?? 'bottom-left');
-    if (!in_array($position, $allowedWidgetPositions, true)) $position = 'bottom-left';
-    $sameSide = (str_ends_with($position,'left') && str_ends_with($waWidgetPosition,'left')) || (str_ends_with($position,'right') && str_ends_with($waWidgetPosition,'right'));
-    if ($sameSide) $position = str_ends_with($position,'left') ? str_replace('left','right',$position) : str_replace('right','left',$position);
-    $widget['position'] = $position;
-    $widget['order'] = max(1,min(99,(int)($widget['order'] ?? 20)));
-}
-unset($widget);
-$seoTitle = trim((string)setting('seo_title','')) ?: setting('site_name','Sabrosísimo Mix').' · '.setting('site_tagline','Sabor y Servicio es nuestra pasión');
-$seoDescription = trim((string)setting('seo_description','')) ?: 'Sabrosísimo Mix: taqueadas, pupusas, pastelitos, saltarines y servicios para eventos en San Pedro Sula.';
-$seoIndexing = (string)setting('seo_indexing','index-follow');
-$seoRobots = $seoIndexing === 'index-follow' ? 'index,follow' : ($seoIndexing === 'noindex-follow' ? 'noindex,follow' : 'noindex,nofollow');
-$seoVerification = trim((string)setting('google_site_verification',''));
-$seoSocialImage = trim((string)setting('seo_social_image',''));
-$turnstileEnabled = setting('turnstile_enabled','0') === '1' && trim((string)setting('turnstile_site_key','')) !== '' && trim((string)setting('turnstile_secret_key','')) !== '';
-$turnstileSiteKey = trim((string)setting('turnstile_site_key',''));
-$socialDefaults = [
-    ['enabled'=>1,'platform'=>'instagram','url'=>'https://www.instagram.com/sabrosisimomix/','order'=>1],
-    ['enabled'=>1,'platform'=>'facebook','url'=>'https://web.facebook.com/people/Sabros%C3%ADsimo-mix/61592916879862/','order'=>2],
-    ['enabled'=>1,'platform'=>'tiktok','url'=>'https://www.tiktok.com/@sabrosisimomix','order'=>3],
-    ['enabled'=>0,'platform'=>'youtube','url'=>'','order'=>4],
-    ['enabled'=>0,'platform'=>'linkedin','url'=>'','order'=>5],
-];
-$socialDecoded=json_decode((string)setting('social_networks_json',''),true);
-$socialNetworks=is_array($socialDecoded)?$socialDecoded:$socialDefaults;
-$socialNetworks=array_values(array_filter($socialNetworks,fn($item)=>is_array($item)&&!empty($item['enabled'])&&!empty($item['url'])));
-usort($socialNetworks,fn($a,$b)=>(int)($a['order']??99)<=>(int)($b['order']??99));
-$socialLocation=(string)setting('social_display_location','footer-floating-right');
-$socialSize=(string)setting('social_icon_size','medium');
-$socialStyle=(string)setting('social_display_style','icons');
-$socialShowDesktop=setting('social_show_desktop','1')==='1';
-$socialShowMobile=setting('social_show_mobile','1')==='1';
-function social_label(string $platform): string {return ['instagram'=>'Instagram','facebook'=>'Facebook','tiktok'=>'TikTok','youtube'=>'YouTube','linkedin'=>'LinkedIn'][$platform]??ucfirst($platform);}
-function social_icon_svg(string $platform): string {
-    return match($platform){
-        'instagram'=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.8 2h8.4A5.8 5.8 0 0 1 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8A5.8 5.8 0 0 1 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2Zm-.2 2A3.6 3.6 0 0 0 4 7.6v8.8A3.6 3.6 0 0 0 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6A3.6 3.6 0 0 0 16.4 4H7.6Zm9.65 1.55a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>',
-        'facebook'=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.6 22v-8h2.7l.4-3.1h-3.1V8.9c0-.9.3-1.5 1.6-1.5h1.7V4.6c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3v2.1H7.4V14h2.8v8h3.4Z"/></svg>',
-        'tiktok'=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.4 3c.4 2.2 1.7 3.5 3.9 3.7v3.1a7.4 7.4 0 0 1-3.9-1.1v6.1a6.1 6.1 0 1 1-5.3-6V12a2.9 2.9 0 1 0 2.1 2.8V3h3.2Z"/></svg>',
-        'youtube'=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.8 4.7 12 4.7 12 4.7s-5.8 0-7.6.5a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.8.5 7.6.5 7.6.5s5.8 0 7.6-.5a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8ZM10 15.3V8.7l5.7 3.3-5.7 3.3Z"/></svg>',
-        'linkedin'=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 8.3H3.3V19h3.3V8.3ZM5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm3.6 5.3V19h3.3v-5.3c0-1.4.3-2.8 2.1-2.8 1.8 0 1.8 1.7 1.8 2.9V19h3.3v-5.9c0-2.9-.6-5.1-4-5.1-1.6 0-2.7.9-3.2 1.7h-.1V8.3H8.6Z"/></svg>',
-        default=>'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>'
-    };
-}
-function render_social_links(array $items,string $style='icons'): string {
-    $html='';
-    foreach($items as $item){$platform=(string)($item['platform']??'');$url=(string)($item['url']??'');if($url==='')continue;$label=social_label($platform);$html.='<a class="social-link social-'.$platform.'" href="'.h($url).'" target="_blank" rel="noopener noreferrer" aria-label="'.h($label).'">'.social_icon_svg($platform).($style==='labels'?'<span>'.h($label).'</span>':'').'</a>';}
-    return $html;
-}
-$quoteError = $_SESSION['quote_error'] ?? '';
-$quoteOld = $_SESSION['quote_old'] ?? [];
-unset($_SESSION['quote_error'], $_SESSION['quote_old']);
-record_public_visit((string)($_SERVER['REQUEST_URI'] ?? '/'));
+try {
+    $content=site_content();
+    $settings=settings();
+    $services=db()->query('SELECT * FROM services WHERE active=1 ORDER BY sort_order,id')->fetchAll();
+    $gallery=db()->query('SELECT * FROM gallery WHERE active=1 ORDER BY sort_order,id')->fetchAll();
+    $videos=[];
+    try { $videos=db()->query('SELECT * FROM videos WHERE active=1 ORDER BY sort_order,id')->fetchAll(); } catch(Throwable $ignored) { $videos=[]; }
+    $aboutArtworks=[];
+    try { $aboutArtworks=db()->query('SELECT * FROM about_artworks WHERE active=1 ORDER BY sort_order,id')->fetchAll(); } catch(Throwable $ignored) { $aboutArtworks=[]; }
+    $areas=db()->query('SELECT * FROM service_areas WHERE active=1 ORDER BY sort_order,id')->fetchAll();
+    $tips=db()->query('SELECT * FROM tips WHERE active=1 ORDER BY sort_order,id LIMIT 5')->fetchAll();
+} catch(Throwable $e) {
+    http_response_code(500);
 ?>
+
 <!doctype html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="theme-color" content="#18110f">
-    <meta name="description" content="<?= h($seoDescription) ?>">
-    <meta name="robots" content="<?= h($seoRobots) ?>">
-    <?php if($seoVerification!==''): ?><meta name="google-site-verification" content="<?= h($seoVerification) ?>"><?php endif; ?>
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="<?= h($seoTitle) ?>">
-    <meta property="og:description" content="<?= h($seoDescription) ?>">
-    <meta property="og:url" content="<?= h(rtrim(base_url(),'/')) ?>">
-    <?php if($seoSocialImage!=='' && is_file(ROOT_DIR.'/'.$seoSocialImage)): ?><meta property="og:image" content="<?= h(base_url($seoSocialImage)) ?>"><?php endif; ?>
-    <meta name="twitter:card" content="summary_large_image">
-    <title><?= h($seoTitle) ?></title>
-    <link rel="stylesheet" href="assets/vendor/ui-feedback.css?v=<?= @filemtime(__DIR__ . '/assets/vendor/ui-feedback.css') ?>"><link rel="stylesheet" href="assets/vendor/select2-local.css?v=<?= @filemtime(__DIR__ . '/assets/vendor/select2-local.css') ?>"><link rel="stylesheet" href="assets/vendor/richtext-local.css?v=<?= @filemtime(__DIR__ . '/assets/vendor/richtext-local.css') ?>"><link rel="stylesheet" href="assets/css/site.css?v=<?= @filemtime(__DIR__ . '/assets/css/site.css') ?>">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Castro's Ready Setup</title>
+<style>
+body {
+  font-family:Arial;
+  padding:40px;
+  max-width:760px;
+  margin:auto;
+  color:#183d39
+}
+code {
+  background:#eee;
+  padding:2px 6px
+}
+</style>
 </head>
 <body>
-<header class="site-header">
-    <a class="site-logo" href="#inicio"><img src="assets/images/branding/logo-negro-slogan.jpg" alt="Sabrosísimo Mix"></a>
-    <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false">☰</button>
-    <nav>
-        <a class="nav-section-link" href="#servicios">Servicios</a>
-        <a class="nav-section-link" href="#nosotros">Nosotros</a>
-        <?php if ($projects): ?><a class="nav-section-link" href="#galeria">Galería</a><?php endif; ?>
-        <a class="nav-section-link" href="#cotizar">Cotizar</a>
-    </nav>
-    <a class="header-cta" href="https://wa.me/<?= $wa ?>" target="_blank" rel="noopener" aria-label="Contactar por WhatsApp"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M16 3.2A12.5 12.5 0 0 0 5.1 21.8L3.4 28.5l6.9-1.8A12.5 12.5 0 1 0 16 3.2Zm0 22.7c-2 0-4-.6-5.6-1.6l-.4-.2-4 .9 1-3.8-.3-.4A10.2 10.2 0 1 1 16 25.9Zm5.6-7.7c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-1.9-.9-3.2-1.7-4.5-3.8-.3-.6.3-.6.9-1.8.1-.2 0-.5-.1-.7-.1-.2-.7-1.7-1-2.4-.3-.7-.6-.6-.8-.6h-.7c-.2 0-.6.1-.9.5-.3.3-1.2 1.2-1.2 2.9 0 1.7 1.3 3.4 1.5 3.6.2.2 2.5 3.9 6.1 5.4 2.3 1 3.2 1.1 4.3.9.7-.1 1.8-.7 2.1-1.5.3-.7.3-1.4.2-1.5-.1-.2-.4-.3-.7-.4Z"/></svg><span>WhatsApp</span></a>
-</header>
+<h1>Castro's Ready needs database configuration</h1>
+<p>Import <code>database.sql</code>, copy <code>config/database.example.php</code> to <code>config/database.php</code>, and enter the MySQL credentials.</p>
+<p><?=h($e->getMessage())?>
 
-<main id="inicio">
-    <section class="hero">
-        <div class="hero-noise"></div>
-        <div class="hero-visual" data-reveal>
-            <button
-                class="brand-frame hero-image-button"
-                type="button"
-                data-site-lightbox
-                data-lightbox-src="assets/images/branding/banner-contacto-horizontal.jpg"
-                data-lightbox-title="Sabrosísimo Mix"
-                data-lightbox-caption="Sabor, servicio y experiencias para tus celebraciones."
-                aria-label="Ampliar imagen principal de Sabrosísimo Mix"
-            >
-                <img src="assets/images/branding/banner-contacto-horizontal.jpg" alt="Presentación de Sabrosísimo Mix con sus servicios y contactos">
-                <span class="hero-image-zoom" aria-hidden="true">⌕</span>
-            </button>
-            <div class="hero-visual-meta">
-                <div class="hero-mini-card hero-mini-card--service">
-                    <span class="hero-mini-icon" aria-hidden="true">✦</span>
-                    <div>
-                        <small>TODO PARA TU EVENTO</small>
-                        <strong>Comida + diversión + atención</strong>
-                    </div>
-                </div>
-                <div class="floating-card">
-                    <small>ENCUÉNTRANOS EN</small>
-                    <strong><?= h(setting('location', 'San Pedro Sula, Honduras')) ?></strong>
-                </div>
-            </div>
-        </div>
-        <div class="hero-copy" data-reveal>
-            <span class="eyebrow"><?= h(content_block('hero_eyebrow', 'EVENTOS · SABOR · EXPERIENCIAS')) ?></span>
-            <h1><?= h(content_block('hero_title', 'Haz de tu evento una experiencia deliciosa e inolvidable')) ?></h1>
-            <div class="rich-content"><?= rich_text_render(content_block('hero_text', 'Ofrecemos taqueadas, pupusas, pastelitos, nieves, palomitas, algodones y saltarines para reuniones familiares, cumpleaños, ferias y eventos empresariales.')) ?></div>
-            <div class="hero-actions">
-                <a class="btn primary" href="#cotizar">Solicitar cotización</a>
-                <a class="btn ghost" href="https://wa.me/<?= $wa ?>" target="_blank" rel="noopener">Escribir por WhatsApp</a>
-            </div>
-            <div class="trust-row">
-                <span>✓ Ingredientes de calidad</span>
-                <span>✓ Preparación al momento</span>
-                <span>✓ Atención personalizada</span>
-                <span>✓ Servicio para eventos</span>
-            </div>
-        </div>
-    </section>
-
-    <?php if($socialNetworks && $socialLocation==='after-hero'):?><div class="social-hero-strip social-size-<?=h($socialSize)?> <?=!$socialShowDesktop?'hide-social-desktop':''?> <?=!$socialShowMobile?'hide-social-mobile':''?>"><span>Síguenos</span><div class="social-links"><?=render_social_links($socialNetworks,$socialStyle)?></div></div><?php endif;?>
-<section class="contact-strip">
-        <div>
-            <small>CONTACTOS</small>
-            <strong><?= h($phone1) ?> · <?= h($phone2) ?></strong>
-        </div>
-        <div class="separator"></div>
-        <div>
-            <small>SERVICIOS</small>
-            <strong>Taqueadas · Pupusas · Pastelitos · Saltarines</strong>
-        </div>
-        <a href="https://wa.me/<?= $wa ?>" target="_blank" rel="noopener">Cotízanos vía WhatsApp →</a>
-    </section>
-
-    <section class="experience-strip" aria-label="Experiencia Sabrosísimo Mix">
-        <article class="experience-card" data-reveal>
-            <span class="experience-number">01</span>
-            <div>
-                <small>COMIDA AL MOMENTO</small>
-                <strong>Sabores que hacen que tus invitados quieran repetir</strong>
-                <p>Taqueadas, pupusas y pastelitos preparados para acompañar celebraciones de distintos tamaños.</p>
-            </div>
-        </article>
-        <article class="experience-card" data-reveal>
-            <span class="experience-number">02</span>
-            <div>
-                <small>ANTOJOS Y SNACKS</small>
-                <strong>Detalles que mantienen el ambiente activo</strong>
-                <p>Nieves, palomitas y opciones dulces para sumar variedad y crear una experiencia más completa.</p>
-            </div>
-        </article>
-        <article class="experience-card" data-reveal>
-            <span class="experience-number">03</span>
-            <div>
-                <small>DIVERSIÓN PARA EL EVENTO</small>
-                <strong>Más que comida: una celebración que se siente</strong>
-                <p>Saltarines y servicios complementarios para que grandes y pequeños disfruten cada momento.</p>
-            </div>
-        </article>
-    </section>
-
-    <section class="event-story section" aria-labelledby="eventStoryTitle">
-        <div class="event-story-copy" data-reveal>
-            <span class="eyebrow">TU EVENTO, MÁS COMPLETO</span>
-            <h2 id="eventStoryTitle">Nos ocupamos de los detalles para que tú disfrutes la celebración</h2>
-            <p>Sabrosísimo Mix combina comida preparada al momento, atención cercana y opciones de entretenimiento para ayudarte a resolver más de tu evento con un solo equipo.</p>
-            <div class="event-story-points">
-                <div><strong>01</strong><span>Cuéntanos fecha, ubicación y cantidad de invitados.</span></div>
-                <div><strong>02</strong><span>Selecciona los servicios que mejor encajan con tu celebración.</span></div>
-                <div><strong>03</strong><span>Recibe atención personalizada para coordinar cada detalle.</span></div>
-            </div>
-            <a class="btn primary" href="#cotizar">Quiero preparar mi evento →</a>
-        </div>
-        <div class="event-story-gallery" data-reveal>
-            <button type="button" class="story-photo story-photo--main" data-site-lightbox data-lightbox-src="assets/images/gallery/servicio-en-evento-nocturno.jpg" data-lightbox-title="Servicio para eventos" data-lightbox-caption="Atención y preparación para acompañar tu celebración." aria-label="Ampliar fotografía de servicio en evento">
-                <img src="assets/images/gallery/servicio-en-evento-nocturno.jpg" alt="Servicio de Sabrosísimo Mix durante un evento">
-                <span>Servicio en tu evento</span>
-            </button>
-            <button type="button" class="story-photo" data-site-lightbox data-lightbox-src="assets/images/gallery/nieves-y-palomitas.jpg" data-lightbox-title="Snacks y antojos" data-lightbox-caption="Opciones para complementar la experiencia de tus invitados." aria-label="Ampliar fotografía de snacks">
-                <img src="assets/images/gallery/nieves-y-palomitas.jpg" alt="Nieves y palomitas para eventos">
-                <span>Snacks y antojos</span>
-            </button>
-            <button type="button" class="story-photo" data-site-lightbox data-lightbox-src="assets/images/gallery/saltarin-modelo-1.jpg" data-lightbox-title="Diversión para celebrar" data-lightbox-caption="Saltarines como complemento para celebraciones familiares." aria-label="Ampliar fotografía de saltarín">
-                <img src="assets/images/gallery/saltarin-modelo-1.jpg" alt="Saltarín para celebraciones">
-                <span>Diversión incluida</span>
-            </button>
-        </div>
-    </section>
-
-    <section class="section services" id="servicios">
-        <div class="section-head">
-            <div>
-                <span class="eyebrow">LO QUE HACEMOS</span>
-                <h2>Soluciones sabrosas para tu evento</h2>
-            </div>
-            <p>Atendemos desde celebraciones en casa hasta reuniones familiares y eventos corporativos, con menús flexibles y servicios complementarios.</p>
-        </div>
-        <div class="service-grid">
-            <?php foreach ($services as $i => $s): ?>
-                <article class="service-card">
-                    <span class="service-index"><?= str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) ?></span>
-                    <div class="service-icon"><?= h($s['icon'] ?: '✦') ?></div>
-                    <h3><?= h($s['title']) ?></h3>
-                    <div class="rich-content"><?= rich_text_render((string)$s['description']) ?></div>
-                </article>
-            <?php endforeach; ?>
-        </div>
-    </section>
-
-    <section class="section about" id="nosotros">
-        <div class="about-media">
-            <button class="about-image-button" type="button" data-site-lightbox data-lightbox-src="assets/images/gallery/evento-con-saltarin-y-taqueadas.jpg" data-lightbox-title="Sabrosísimo Mix en acción" data-lightbox-caption="Servicio en evento con preparación al momento y saltarín." aria-label="Ampliar fotografía"><img src="assets/images/gallery/evento-con-saltarin-y-taqueadas.jpg" alt="Sabrosísimo Mix atendiendo un evento con comida y saltarín"><span class="zoom-hint" aria-hidden="true">⌕</span></button>
-            <div class="quality-badge"><b>4</b><span>líneas de<br>servicio base</span></div>
-        </div>
-        <div class="about-copy">
-            <span class="eyebrow">SABROSÍSIMO MIX</span>
-            <h2><?= h(content_block('about_title', 'Todo lo que necesitas para compartir y celebrar')) ?></h2>
-            <div class="rich-content"><?= rich_text_render(content_block('about_text', 'Nos encargamos de la comida y del ambiente para que tus invitados disfruten. Trabajamos con atención cercana, preparación al momento y opciones ideales para distintos tipos de evento.')) ?></div>
-            <ul>
-                <li><b>01</b> Taqueadas, pupusas y pastelitos</li>
-                <li><b>02</b> Nieves, palomitas y algodones</li>
-                <li><b>03</b> Saltarines para fiestas</li>
-                <li><b>04</b> Servicio a domicilio y eventos</li>
-            </ul>
-        </div>
-    </section>
-
-    <?php if ($projects): ?>
-        <section class="section portfolio" id="galeria">
-            <div class="section-head">
-                <div>
-                    <span class="eyebrow">GALERÍA</span>
-                    <h2>Montajes, promociones y experiencias</h2>
-                </div>
-                <p>Se cargó al proyecto el material visual compartido por el cliente: fotografías reales, imágenes de referencia y artes promocionales.</p>
-            </div>
-            <div class="project-grid">
-                <?php foreach ($projects as $p): ?>
-                    <article class="project-card">
-                        <?php if ($p['image_path']): $displayImage = public_display_image_path((string)$p['image_path']); ?>
-                            <button class="project-image-button" type="button" data-site-lightbox data-lightbox-src="<?= h($displayImage) ?>" data-lightbox-title="<?= h($p['title']) ?>" data-lightbox-caption="<?= h(rich_text_plain((string)$p['description'])) ?>" aria-label="Ampliar imagen: <?= h($p['title']) ?>"><img src="<?= h($displayImage) ?>" alt="<?= h($p['title']) ?>"><span class="zoom-hint" aria-hidden="true">⌕</span></button>
-                        <?php else: ?>
-                            <div class="project-placeholder">SM</div>
-                        <?php endif; ?>
-                        <div>
-                            <small><?= h($p['category']) ?></small>
-                            <h3><?= h($p['title']) ?></h3>
-                            <div class="rich-content"><?= rich_text_render((string)$p['description']) ?></div>
-                        </div>
-                    </article>
-                <?php endforeach; ?>
-            </div>
-        </section>
-    <?php endif; ?>
-
-    <?php if ($areas || $tips): ?>
-        <section class="section detail-grid">
-            <?php if ($areas): ?>
-                <div>
-                    <span class="eyebrow">COBERTURA</span>
-                    <h2>Áreas de servicio</h2>
-                    <div class="detail-list">
-                        <?php foreach ($areas as $a): ?>
-                            <article>
-                                <strong><?= h($a['name']) ?></strong>
-                                <div class="rich-content"><?= rich_text_render((string)$a['description']) ?></div>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
-            <?php if ($tips): ?>
-                <div>
-                    <span class="eyebrow">PARA TU EVENTO</span>
-                    <h2>Tips útiles</h2>
-                    <div class="detail-list">
-                        <?php foreach ($tips as $t): ?>
-                            <article>
-                                <strong><?= h($t['title']) ?></strong>
-                                <div class="rich-content"><?= rich_text_render((string)$t['body']) ?></div>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </section>
-    <?php endif; ?>
-
-    <section class="quote-section" id="cotizar">
-        <div class="quote-intro">
-            <span class="eyebrow">COTIZA TU EVENTO</span>
-            <h2>Cuéntanos qué estás preparando.</h2>
-            <p>Envíanos fecha, zona, cantidad aproximada de personas y los servicios que necesitas. El equipo podrá darle seguimiento desde el panel administrativo.</p>
-            <div class="direct-contact">
-                <a href="tel:<?= h(preg_replace('/\D+/', '', $phone1)) ?>"><?= h($phone1) ?></a>
-                <a href="tel:<?= h(preg_replace('/\D+/', '', $phone2)) ?>"><?= h($phone2) ?></a>
-            </div>
-        </div>
-        <form class="quote-form" method="post" action="quote.php" enctype="multipart/form-data">
-            <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-            <input type="hidden" name="form_started_at" value="<?= time() ?>">
-            <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-            <?php if (isset($_GET['sent'])): ?><div hidden data-public-notify data-type="success" data-message="¡Gracias! Recibimos tu solicitud y podremos darle seguimiento."></div><?php endif; ?><?php if ($quoteError): ?><div hidden data-public-notify data-type="error" data-message="<?= h($quoteError) ?>"></div><?php endif; ?>
-
-            <div class="field-row">
-                <label>Nombre completo<input name="full_name" value="<?= h($quoteOld['full_name'] ?? '') ?>" required></label>
-                <label>Teléfono<input name="phone" value="<?= h($quoteOld['phone'] ?? '') ?>" required></label>
-            </div>
-            <div class="field-row">
-                <div class="quote-field email-validation-field" data-email-validation>
-                    <label for="quote-email">Correo</label>
-                    <div class="email-input-wrap">
-                        <input id="quote-email" type="email" name="email" value="<?= h($quoteOld['email'] ?? '') ?>" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" required aria-describedby="quote-email-status">
-                        <span class="email-validation-indicator" data-email-indicator aria-hidden="true"></span>
-                    </div>
-                    <div class="email-validation-feedback" id="quote-email-status" data-email-status aria-live="polite"></div>
-                    <button class="email-suggestion" type="button" data-email-suggestion hidden></button>
-                </div>
-                <label>Servicio
-                    <select name="service_needed">
-                        <option value="">Selecciona una opción</option>
-                        <?php foreach ($services as $s): ?>
-                            <option <?= ($quoteOld['service_needed'] ?? '') === $s['title'] ? 'selected' : '' ?>><?= h($s['title']) ?></option>
-                        <?php endforeach; ?>
-                        <option <?= ($quoteOld['service_needed'] ?? '') === 'Evento / paquete personalizado' ? 'selected' : '' ?>>Evento / paquete personalizado</option>
-                    </select>
-                </label>
-            </div>
-            <label>Dirección o zona del evento<input name="address" value="<?= h($quoteOld['address'] ?? '') ?>"></label>
-            <label>Cuéntanos sobre el evento<textarea name="message" placeholder="Fecha, cantidad aproximada de personas, horario, servicios que te interesan…"><?= h($quoteOld['message'] ?? '') ?></textarea></label>
-            <div class="upload-field">
-                <div class="upload-heading"><strong>Adjuntos opcionales</strong><small>JPG, PNG o WEBP · máximo 3 archivos de 3 MB cada uno</small></div>
-                <div class="public-dropzone" data-public-dropzone tabindex="0" role="button" aria-label="Adjuntar archivos">
-                    <input class="public-file-input" type="file" name="attachments[]" multiple accept="image/jpeg,image/png,image/webp" data-public-file-input>
-                    <div class="dropzone-icon" aria-hidden="true">⇧</div>
-                    <div class="dropzone-copy"><strong>Arrastra y suelta tus imágenes aquí</strong><span>También puedes pegar con Ctrl + V o seleccionar desde tu equipo.</span></div>
-                    <button class="btn file-select-btn" type="button" data-public-file-select>Seleccionar archivos</button>
-                </div>
-                <div class="public-file-list" data-public-file-list aria-live="polite"></div>
-            </div>
-            <?php if($turnstileEnabled): ?><div class="turnstile-wrap"><div class="cf-turnstile" data-sitekey="<?=h($turnstileSiteKey)?>" data-theme="light" data-language="es"></div><small>Protegido por Cloudflare Turnstile.</small></div><?php endif; ?>
-            <button class="btn primary" type="submit">Enviar solicitud</button>
-        </form>
-    </section>
-</main>
-
-<footer>
-    <div>
-        <img src="assets/images/branding/logo-negro-slogan.jpg" alt="Sabrosísimo Mix">
-        <p><?= h(setting('site_tagline', 'Sabor y Servicio es nuestra pasión')) ?></p>
-    </div>
-    <div>
-        <strong>Contacto</strong>
-        <a href="tel:<?= h(preg_replace('/\D+/', '', $phone1)) ?>"><?= h($phone1) ?></a>
-        <a href="tel:<?= h(preg_replace('/\D+/', '', $phone2)) ?>"><?= h($phone2) ?></a>
-        <span><?= h(setting('location', 'San Pedro Sula, Honduras')) ?></span>
-    </div>
-    <?php if($socialNetworks && in_array($socialLocation,['footer','footer-floating-left','footer-floating-right'],true)):?><div class="footer-socials <?=!$socialShowDesktop?'hide-social-desktop':''?> <?=!$socialShowMobile?'hide-social-mobile':''?>"><strong>Síguenos</strong><div class="social-links social-links--footer social-size-<?=h($socialSize)?>"><?=render_social_links($socialNetworks,$socialStyle)?></div></div><?php else:?><div class="footer-socials"><strong>Síguenos</strong><span>Conecta con nosotros</span></div><?php endif;?><small class="copyright">© <?= date('Y') ?> Sabrosísimo Mix. Todos los derechos reservados.</small>
-</footer>
-
-<div class="floating-widget-layer" aria-label="Accesos flotantes">
-<?php if($socialNetworks && in_array($socialLocation,['floating-left','floating-right','footer-floating-left','footer-floating-right'],true)): $socialSide=str_contains($socialLocation,'left')?'left':'right';?><div class="social-floating social-floating--<?=h($socialSide)?> social-size-<?=h($socialSize)?> <?=!$socialShowDesktop?'hide-social-desktop':''?> <?=!$socialShowMobile?'hide-social-mobile':''?>"><div class="social-links"><?=render_social_links($socialNetworks,$socialStyle)?></div></div><?php endif;?>
-<?php if($waWidgetEnabled && $wa !== ''): ?>
-    <a class="wa-float floating-slot pos-<?=h($waWidgetPosition)?>" style="--float-offset:<?=$waWidgetOffset?>px" href="https://wa.me/<?= $wa ?>" target="_blank" rel="noopener" aria-label="Abrir WhatsApp">
-        <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M16 3.2A12.5 12.5 0 0 0 5.1 21.8L3.4 28.5l6.9-1.8A12.5 12.5 0 1 0 16 3.2Zm0 22.7c-2 0-4-.6-5.6-1.6l-.4-.2-4 .9 1-3.8-.3-.4A10.2 10.2 0 1 1 16 25.9Zm5.6-7.7c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-1.9-.9-3.2-1.7-4.5-3.8-.3-.6.3-.6.9-1.8.1-.2 0-.5-.1-.7-.1-.2-.7-1.7-1-2.4-.3-.7-.6-.6-.8-.6h-.7c-.2 0-.6.1-.9.5-.3.3-1.2 1.2-1.2 2.9 0 1.7 1.3 3.4 1.5 3.6.2.2 2.5 3.9 6.1 5.4 2.3 1 3.2 1.1 4.3.9.7-.1 1.8-.7 2.1-1.5.3-.7.3-1.4.2-1.5-.1-.2-.4-.3-.7-.4Z"/></svg>
-    </a>
-<?php endif; ?>
-<?php foreach($externalWidgets as $widget):
-    if(empty($widget['enabled'])) continue;
-    $widgetPosition=(string)($widget['position']??'bottom-left');
-    $widgetOffset=((int)($widget['order']??20)-1)*70;
-    $showDesktop=!array_key_exists('desktop',$widget)||!empty($widget['desktop']);
-    $showMobile=!array_key_exists('mobile',$widget)||!empty($widget['mobile']);
-    $visibilityClass=(!$showDesktop?' widget-hide-desktop':'').(!$showMobile?' widget-hide-mobile':'');
-    $installType=(string)($widget['install_type']??'code');
+</p>
+</body>
+</html><?php
+exit;
+}
+$draftPreview=!empty($_SESSION['cr_admin_id'])&&($_GET['draft']??'')==='1';
+if($draftPreview) {
+    $draft=draft_content();
+    if($draft)$content=array_replace($content,$draft);
+}
+function c(string $k,string $f=''):string {
+    global $content;
+    return $content[$k]??$f;
+}
+function public_video_embed(array $video): string {
+    $type=(string)($video['video_type']??'');
+    $url=trim((string)($video['video_url']??''));
+    if($type==='youtube') {
+        if(preg_match('~(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|shorts/))([A-Za-z0-9_-]{6,})~',$url,$m)) {
+            return 'https://www.youtube-nocookie.com/embed/'.rawurlencode($m[1]).'?rel=0';
+        }
+    }
+    if($type==='vimeo' && preg_match('~vimeo\.com/(?:video/)?([0-9]+)~',$url,$m)) {
+        return 'https://player.vimeo.com/video/'.rawurlencode($m[1]);
+    }
+    return '';
+}
+$phone=$settings['phone']??'+1 202-644-2717';
+$digits=preg_replace('/\D+/','',$settings['phone_digits']??'12026442717');
+$email=$settings['email']??'castrosreadycompany@gmail.com';
+$turnstileSiteKey=PublicFormProtection::turnstileSiteKey();
+$favicon=$settings['favicon_path']??'assets/logo.jpg';
+$maintenance=($settings['maintenance_mode']??'0')==='1';
+$adminPreview=!empty($_SESSION['cr_admin_id'])&&($_GET['preview']??'')==='1';
+if($maintenance&&!$adminPreview) {
+    $mt=$settings['maintenance_title']??'We are improving our website.';
+    $mx=$settings['maintenance_text']??'We will be back shortly.';
+    $mi=trim((string)($settings['maintenance_image_path']??''));
 ?>
-    <div class="external-widget-slot floating-slot pos-<?=h($widgetPosition)?><?=h($visibilityClass)?>" style="--float-offset:<?=$widgetOffset?>px" aria-label="<?=h((string)($widget['name']??'Widget'))?>">
-      <?php if($installType==='url' && filter_var((string)($widget['url']??''),FILTER_VALIDATE_URL)): ?>
-        <iframe class="floating-widget-frame" src="<?=h((string)$widget['url'])?>" title="<?=h((string)($widget['name']??'Widget'))?>" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-      <?php elseif(trim((string)($widget['code']??''))!==''): ?>
-        <?= (string)$widget['code'] ?>
-      <?php endif; ?>
-    </div>
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Castro's Ready</title>
+<link rel="icon" href="<?=h($favicon)?>">
+<link rel="shortcut icon" href="<?=h($favicon)?>">
+<style>
+* {
+  box-sizing:border-box
+}
+body {
+  margin:0;
+  background:#f3f5f3;
+  color:#173f3d;
+  font-family:Inter,Arial,sans-serif
+}
+.m {
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:24px
+}
+.c {
+  width:min(760px,100%);
+  background:#fff;
+  border:1px solid #dce4df;
+  border-radius:30px;
+  padding:clamp(28px,6vw,58px);
+  text-align:center;
+  box-shadow:0 24px 70px rgba(16,60,57,.13);
+  position:relative;
+  overflow:hidden
+}
+.c:before {
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:6px;
+  background:#f2d45c
+}
+.brand {
+  width:88px;
+  height:88px;
+  border-radius:22px;
+  object-fit:cover;
+  border:1px solid #dce4df
+}
+.hero {
+  width:100%;
+  max-height:310px;
+  object-fit:cover;
+  border-radius:22px;
+  margin:20px 0 4px;
+  border:1px solid #dce4df
+}
+h1 {
+  font-size:clamp(32px,6vw,54px);
+  margin:20px 0 10px;
+  letter-spacing:-.04em;
+  line-height:1.05
+}
+p {
+  color:#687574;
+  line-height:1.75;
+  font-size:clamp(15px,2vw,18px)
+}
+.a {
+  display:inline-flex;
+  margin-top:14px;
+  padding:14px 20px;
+  border-radius:13px;
+  background:#0f7777;
+  color:#fff;
+  text-decoration:none;
+  font-weight:850;
+  box-shadow:0 10px 24px rgba(15,119,119,.18)
+}
+@media(max-width:520px) {
+  .m {
+    padding:14px
+  }
+  .c {
+    padding:26px 18px;
+    border-radius:22px
+  }
+  .hero {
+    border-radius:16px
+  }
+}
+</style>
+</head>
+<body>
+<main class="m">
+<section class="c">
+<img class="brand" src="assets/logo.jpg" alt="Castro's Ready"><?php
+if($mi!==''):
+?>
+
+<img class="hero" src="<?=h($mi)?>" alt="Website maintenance"><?php
+endif;
+?>
+
+<h1><?=h($mt)?>
+
+</h1>
+<p><?=h($mx)?>
+
+</p>
+<a class="a" href="https://wa.me/<?=$digits?>">Contact us on WhatsApp</a>
+</section>
+</main>
+</body>
+</html><?php
+exit;
+}
+$fontCatalog=[ 'Manrope'=>"'Manrope',sans-serif",
+'DM Sans'=>"'DM Sans',sans-serif",
+'Montserrat'=>"'Montserrat',sans-serif",
+'Poppins'=>"'Poppins',sans-serif",
+'Inter'=>"'Inter',sans-serif",
+'Roboto'=>"'Roboto',sans-serif",
+'Open Sans'=>"'Open Sans',sans-serif",
+'Lato'=>"'Lato',sans-serif",
+'Nunito'=>"'Nunito',sans-serif",
+'Merriweather'=>"'Merriweather',serif",
+'Playfair Display'=>"'Playfair Display',serif",
+'System'=>"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" ];
+$headingFont=$settings['font_heading_family']??'Manrope';
+$bodyFont=$settings['font_body_family']??'DM Sans';
+if(!isset($fontCatalog[$headingFont]))$headingFont='Manrope';
+if(!isset($fontCatalog[$bodyFont]))$bodyFont='DM Sans';
+$webFonts=array_values(array_unique(array_filter([$headingFont,$bodyFont],fn($f)=>$f!=='System')));
+$fontHref='';
+if($webFonts) {
+    $families=[];
+    foreach($webFonts as $f)$families[]='family='.str_replace('%20','+',rawurlencode($f)).':wght@300;400;500;600;700;800;900';
+    $fontHref='https://fonts.googleapis.com/css2?'.implode('&',$families).'&display=swap';
+}
+$bannerEnabled=($settings['banner_enabled']??'1')==='1';
+$bannerType=$settings['banner_type']??'image';
+$bannerImage=$settings['banner_image_path']??'assets/hero-banner.png';
+$bannerVideo=$settings['banner_video_path']??'';
+$bannerEmbed=trim((string)($settings['banner_embed_url']??''));
+$bannerAlt=$settings['banner_alt']??"Castro's Ready services";
+$bannerDisplay=$settings['banner_display']??'full';
+$bannerHeight=$settings['banner_height']??'auto';
+$navPosition=$settings['nav_position']??'below_banner';
+$navBehavior=$settings['nav_behavior']??'sticky_after';
+$navLogo=($settings['nav_logo_enabled']??'0')==='1';
+$navAlign=$settings['nav_alignment']??'center';
+$embedUrl='';
+if($bannerEmbed!=='') {
+    if(preg_match('~(?:youtube\.com/watch\?v=|youtu\.be/)([A-Za-z0-9_-]{6,})~',$bannerEmbed,$m))$embedUrl='https://www.youtube.com/embed/'.$m[1].'?rel=0&modestbranding=1';
+    elseif(preg_match('~vimeo\.com/(\d+)~',$bannerEmbed,$m))$embedUrl='https://player.vimeo.com/video/'.$m[1];
+}
+$renderBanner=function() use($bannerEnabled,$bannerType,$bannerImage,$bannerVideo,$embedUrl,$bannerAlt,$bannerDisplay,$bannerHeight) {
+    if(!$bannerEnabled)return;
+    echo '<section class="site-banner banner-'.$bannerDisplay.' banner-'.$bannerHeight.'" aria-label="Website banner"><div class="site-banner-inner">';
+    if($bannerType==='video_upload'&&$bannerVideo!=='')echo '<video src="'.h($bannerVideo).'" autoplay muted loop playsinline controls></video>';
+    elseif($bannerType==='video_embed'&&$embedUrl!=='')echo '<div class="banner-embed"><iframe src="'.h($embedUrl).'" title="Website banner video" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>';
+    else echo '<img src="'.h($bannerImage).'" alt="'.h($bannerAlt).'">';
+    echo '</div></section>';
+}
+;
+$renderNav=function() use($navBehavior,$navLogo,$navAlign,$videos) {
+    echo '<header class="site-header nav-'.h($navBehavior).' '.(!$navLogo?'no-brand ':'').'align-'.h($navAlign).'" id="top"><div class="container nav-wrap">';
+    if($navLogo)echo '<a class="brand" href="#home" data-scroll><img src="assets/logo.jpg" alt="Castro\'s Ready logo"><span class="brand-copy"><strong>CASTRO\'S READY</strong><small>PAINTING · REPAIRS · MAINTENANCE</small></span></a>';
+    $videoLink=!empty($videos)?'<a href="#videos" data-scroll>Videos</a>':'';
+    echo '<button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false">☰</button><nav class="main-nav"><a href="#home" data-scroll>Home</a><a href="#about" data-scroll>About</a><a href="#services" data-scroll>Services</a>'.$videoLink.'<a href="#gallery" data-scroll>Gallery</a><a href="#areas" data-scroll>Service Areas</a><a href="#contact" data-scroll>Contact</a><a class="nav-cta" href="#estimate" data-scroll>Free Estimate</a></nav></div><div class="scroll-progress"><span></span></div></header>';
+}
+;
+?>
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="<?=h($settings['seo_description']??'Professional home improvement services.')?>">
+<meta name="robots" content="<?=h($settings['seo_robots']??'index,follow')?>">
+<meta property="og:title" content="<?=h($settings['seo_title']??"Castro's Ready | Home Improvement")?>">
+<meta property="og:description" content="<?=h($settings['seo_description']??'Professional home improvement services.')?>"><?php
+if(!empty($settings['seo_social_image'])):
+?>
+
+<meta property="og:image" content="<?=h($settings['seo_social_image'])?>"><?php
+endif;
+?>
+
+<title><?=h($settings['seo_title']??"Castro's Ready | Home Improvement")?>
+
+</title>
+<link rel="icon" href="<?=h($favicon)?>">
+<link rel="shortcut icon" href="<?=h($favicon)?>"><?php
+if($fontHref!==''):
+?>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="<?=h($fontHref)?>" rel="stylesheet"><?php
+endif;
+?>
+
+<link rel="stylesheet" href="<?=h(versioned_asset('assets/site.css', 'assets/site.css'))?>">
+<style>
+:root {
+  --font-heading: <?= $fontCatalog[$headingFont] ?>;
+  --font-body: <?= $fontCatalog[$bodyFont] ?>;
+  --size-h1-desktop: <?= h($settings['font_h1_desktop'] ?? '40') ?>px;
+  --size-h1-tablet: <?= h($settings['font_h1_tablet'] ?? '34') ?>px;
+  --size-h1-mobile: <?= h($settings['font_h1_mobile'] ?? '30') ?>px;
+  --size-h2-desktop: <?= h($settings['font_h2_desktop'] ?? '32') ?>px;
+  --size-h2-mobile: <?= h($settings['font_h2_mobile'] ?? '28') ?>px;
+  --size-h3: <?= h($settings['font_h3'] ?? '22') ?>px;
+  --size-body: <?= h($settings['font_body_size'] ?? '16') ?>px;
+  --size-small: <?= h($settings['font_small'] ?? '14') ?>px;
+  --size-nav: <?= h($settings['font_nav'] ?? '15') ?>px;
+  --size-button: <?= h($settings['font_button'] ?? '15') ?>px;
+  --line-body: <?= h($settings['line_height_body'] ?? '1.7') ?>;
+  --weight-heading: <?= h($settings['heading_weight'] ?? '800') ?>;
+  --weight-body: <?= h($settings['body_weight'] ?? '400') ?>;
+  --teal: <?= h($settings['color_primary'] ?? '#0f7777') ?>;
+  --teal-dark: <?= h($settings['color_primary_dark'] ?? '#0b5f60') ?>;
+  --yellow: <?= h($settings['color_secondary'] ?? '#f2d45c') ?>;
+  --paper: <?= h($settings['color_background'] ?? '#f7f6f1') ?>;
+  --white: <?= h($settings['color_surface'] ?? '#ffffff') ?>;
+  --ink: <?= h($settings['color_text'] ?? '#1c2a2a') ?>;
+  --muted: <?= h($settings['color_muted'] ?? '#667170') ?>;
+  --radius: <?= h($settings['theme_radius'] ?? '24') ?>px;
+  --shadow: 0 18px 50px rgba(22, 49, 45, <?= h(((float) ($settings['theme_shadow_strength'] ?? 10)) / 100) ?>);
+}
+</style>
+</head>
+<body class="<?= $navBehavior === 'fixed' ? 'nav-fixed-layout' : '' ?>">
+<style>
+main {
+  display:flex;
+  flex-direction:column
+}
+</style><?php
+if($navPosition==='above_banner') {
+    $renderNav();
+    $renderBanner();
+} else {
+    $renderBanner();
+    $renderNav();
+}
+?>
+
+<main>
+<?php
+if(section_enabled('home')):
+?>
+
+<section class="hero section-anchor" id="home" style="order:<?=section_order('home')?>">
+<div class="container hero-grid">
+<div class="reveal">
+<span class="eyebrow" data-content-key="hero_eyebrow"><?=h(c('hero_eyebrow'))?>
+
+</span>
+<h1 data-content-key="hero_title"><?=h(c('hero_title'))?>
+
+</h1>
+<p class="hero-text" data-content-key="hero_text"><?=h(c('hero_text'))?>
+
+</p>
+<div class="hero-actions">
+<a class="btn btn-primary" href="#estimate" data-scroll>Request a Free Estimate</a>
+<a class="btn btn-secondary" href="tel:<?=$digits?>">Call <?=h($phone)?>
+
+</a>
+</div>
+<div class="trust-row">
+<span>Reliable service</span>
+<span>Quality workmanship</span>
+<span>Home-focused care</span>
+</div>
+</div>
+<div class="hero-visual reveal">
+<div class="hero-badge">
+<strong>One trusted team.</strong>
+<span>From touch-ups to full transformations.</span>
+</div>
+</div>
+</div>
+</section>
+<?php
+endif;
+?>
+<?php
+if(section_enabled('intro')):
+?>
+
+<section class="intro-strip" style="order:<?=section_order('intro')?>">
+<div class="container intro-grid reveal">
+<div>
+<span class="kicker">WHAT WE DO</span>
+<h2 data-content-key="intro_title"><?=h(c('intro_title'))?>
+
+</h2>
+</div>
+<p data-content-key="intro_text"><?=h(c('intro_text'))?>
+
+</p>
+</div>
+</section>
+<?php
+endif;
+?>
+<?php
+if(section_enabled('about')):
+?>
+
+<section class="section section-anchor" id="about" style="order:<?=section_order('about')?>">
+<div class="container about-grid">
+<div class="photo-stack reveal">
+<div class="photo photo-main">
+</div>
+<div class="photo-note">
+<span>Built around one standard</span>
+<strong>Do the work right.</strong>
+</div>
+</div>
+<div class="section-copy reveal">
+<span class="kicker">ABOUT CASTRO'S READY</span>
+<h2 data-content-key="about_title"><?=h(c('about_title'))?>
+
+</h2>
+<p class="lead" data-content-key="about_text"><?=h(c('about_text'))?>
+
+</p>
+<p data-content-key="about_text_2"><?=h(c('about_text_2'))?>
+
+</p>
+<?php if(!empty($aboutArtworks)): ?>
+<div class="mission-art-grid about-artwork-gallery <?=count($aboutArtworks)===1?'single-artwork':''?>">
+<?php foreach($aboutArtworks as $artwork): ?>
+<article class="mission-art-card">
+<img src="<?=h($artwork['image_path'])?>" alt="<?=h(trim((string)$artwork['title'])!==''?$artwork['title'].' artwork':'Castro\'s Ready Mission and Vision artwork')?>" loading="lazy">
+</article>
 <?php endforeach; ?>
 </div>
-<?php if($turnstileEnabled): ?><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script><?php endif; ?>
-<script src="assets/vendor/ui-feedback.js?v=<?= @filemtime(__DIR__ . '/assets/vendor/ui-feedback.js') ?>"></script>
-<div class="site-lightbox" data-site-lightbox-modal hidden aria-hidden="true">
-  <div class="site-lightbox-backdrop" data-site-lightbox-close></div>
-  <section class="site-lightbox-dialog" role="dialog" aria-modal="true" aria-labelledby="siteLightboxTitle">
-    <button class="site-lightbox-close" type="button" data-site-lightbox-close aria-label="Cerrar visor"><span aria-hidden="true">×</span><strong>Cerrar</strong></button>
-    <div class="site-lightbox-stage"><img data-site-lightbox-image alt=""></div>
-    <div class="site-lightbox-copy"><h2 id="siteLightboxTitle" data-site-lightbox-title></h2><p data-site-lightbox-caption></p></div>
-  </section>
+<p class="visually-hidden" data-content-key="mission"><?=h(c('mission'))?></p>
+<p class="visually-hidden" data-content-key="vision"><?=h(c('vision'))?></p>
+<?php else: ?>
+<div class="mission-grid mission-text-fallback">
+<article><span>Mission</span><p data-content-key="mission"><?=h(c('mission'))?></p></article>
+<article><span>Vision</span><p data-content-key="vision"><?=h(c('vision'))?></p></article>
 </div>
-<script src="assets/vendor/select2-local.js?v=<?= @filemtime(__DIR__ . '/assets/vendor/select2-local.js') ?>"></script>
-<script src="assets/vendor/richtext-local.js?v=<?= @filemtime(__DIR__ . '/assets/vendor/richtext-local.js') ?>"></script>
-<script src="assets/js/site.js?v=<?= @filemtime(__DIR__ . '/assets/js/site.js') ?>"></script>
+<?php endif; ?>
+<div class="values">
+<span>Integrity</span>
+<span>Respect</span>
+<span>Quality</span>
+<span>Reliability</span>
+<span>Accountability</span>
+<span>Customer Focus</span>
+</div>
+</div>
+</div>
+</section>
+<?php
+endif;
+?>
+<?php
+if(section_enabled('services')):
+?>
+
+<section class="section services-section section-anchor" id="services" style="order:<?=section_order('services')?>">
+<div class="container">
+<div class="section-head reveal">
+<div>
+<span class="kicker">OUR SERVICES</span>
+<h2>From maintenance to complete transformations.</h2>
+</div>
+<p>Select a category to explore the work Castro's Ready can help with.</p>
+</div>
+<div class="services-grid reveal"><?php
+foreach($services as $i=>$s):
+?>
+
+<details>
+<summary>
+<span class="service-icon service-badge-wrap">
+<?php if(!empty($s['icon_path'])): ?><img src="<?=h($s['icon_path'])?>" alt="<?=h($s['title'])?> service badge" loading="lazy"><?php else: ?><?=str_pad((string)($i+1),2,'0',STR_PAD_LEFT)?><?php endif; ?>
+</span>
+<strong><?=h($s['title'])?>
+
+</strong>
+<i>+</i>
+</summary>
+<div class="service-body">
+<p><?=h($s['details'])?>
+
+</p>
+</div>
+</details><?php
+endforeach;
+?>
+
+</div>
+</div>
+</section>
+<?php
+endif;
+?>
+<?php
+if(section_enabled('videos')&&!empty($videos)):
+?>
+<section class="section video-section section-anchor" id="videos" style="order:<?=section_order('videos')?>">
+<div class="container">
+<div class="section-head reveal">
+<div><span class="kicker">SEE OUR WORK</span><h2>Watch the craftsmanship behind the finished result.</h2></div>
+<p>Real project videos, presented in a clean and consistent showcase.</p>
+</div>
+<div class="video-grid reveal">
+<?php foreach($videos as $video): $embed=public_video_embed($video); ?>
+<article class="video-card">
+<div class="video-frame">
+<?php if($video['video_type']==='upload'&&!empty($video['file_path'])): ?>
+<video controls preload="metadata" playsinline <?php if(!empty($video['poster_path'])): ?>poster="<?=h($video['poster_path'])?>"<?php endif; ?>><source src="<?=h($video['file_path'])?>"></video>
+<?php elseif($embed!==''): ?>
+<iframe src="<?=h($embed)?>" title="<?=h($video['title'])?>" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+<?php endif; ?>
+</div>
+<div class="video-card-copy"><strong><?=h($video['title'])?></strong><?php if(trim((string)$video['description'])!==''): ?><p><?=h($video['description'])?></p><?php endif; ?></div>
+</article>
+<?php endforeach; ?>
+</div>
+</div>
+</section>
+<?php endif; ?>
+
+<?php
+if(section_enabled('gallery')):
+?>
+
+<section class="section gallery-section section-anchor" id="gallery" style="order:<?=section_order('gallery')?>">
+<div class="container">
+<div class="section-head reveal">
+<div>
+<span class="kicker">PROJECT GALLERY</span>
+<h2>Craftsmanship is easier to trust when you can see it.</h2>
+</div>
+<a class="text-link" href="#estimate" data-scroll>Start your project →</a>
+</div>
+<div class="gallery-grid reveal"><?php
+foreach($gallery as $i=>$g):$img=$g['image_path']?:gallery_fallback($i);
+?>
+
+<article class="gallery-card g<?=($i%6)+1?>" style="background-image:url('<?=h($img)?>')">
+<span><?=h($g['title'])?>
+
+</span>
+<button type="button" class="gallery-zoom" data-gallery-src="<?=h($img)?>" data-gallery-title="<?=h($g['title'])?>" aria-label="View <?=h($g['title'])?>
+
+ large">⌕</button>
+</article><?php
+endforeach;
+?>
+
+</div>
+</div>
+</section>
+<?php
+endif;
+?>
+<?php
+if(section_enabled('areas')):
+?>
+
+<section class="section areas-section section-anchor" id="areas" style="order:<?=section_order('areas')?>">
+<div class="container areas-grid">
+<div class="reveal">
+<span class="kicker">SERVICE AREAS</span>
+<h2 data-content-key="areas_title"><?=h(c('areas_title'))?>
+
+</h2>
+<p data-content-key="areas_text"><?=h(c('areas_text'))?>
+
+</p>
+<div class="area-tags"><?php
+if($areas):foreach($areas as $a):
+?>
+
+<span><?=h($a['area_name'])?>
+
+</span><?php
+endforeach;
+else:
+?>
+
+<span>Coverage locations coming soon</span><?php
+endif;
+?>
+
+</div>
+<a class="btn btn-secondary" href="tel:<?=$digits?>">Ask if we serve your area</a>
+</div>
+<?php
+$serviceMapEnabled=($settings['service_map_enabled']??'1')==='1';
+$serviceMapQuery=trim((string)($settings['service_map_query']??''));
+if($serviceMapQuery===''&&!empty($areas)) {
+    $serviceMapQuery=(string)$areas[0]['area_name'];
+}
+if($serviceMapQuery==='') {
+    $serviceMapQuery='United States';
+}
+$serviceMapLabel=trim((string)($settings['service_map_label']??'Service Area Map'));
+if($serviceMapLabel==='') {
+    $serviceMapLabel='Service Area Map';
+}
+?>
+<?php if($serviceMapEnabled): ?>
+<div class="service-map reveal">
+<iframe
+    title="<?=h($serviceMapLabel)?>"
+    src="https://www.google.com/maps?q=<?=rawurlencode($serviceMapQuery)?>&output=embed"
+    loading="lazy"
+    referrerpolicy="no-referrer-when-downgrade"
+></iframe>
+<div class="map-card">
+<strong><?=h($serviceMapLabel)?></strong>
+<span><?=h($serviceMapQuery)?></span>
+</div>
+</div>
+<?php endif; ?>
+</div>
+</section>
+<?php
+endif;
+?>
+<?php
+if(section_enabled('tips')):
+?>
+
+<section class="section tips-section section-anchor" id="tips" style="order:<?=section_order('tips')?>">
+<div class="container">
+<div class="section-head reveal">
+<div>
+<span class="kicker">HOME IMPROVEMENT TIPS</span>
+<h2>Useful advice for protecting your home.</h2>
+</div>
+<p>Practical guidance for keeping your property looking and performing its best.</p>
+</div>
+<div class="tips-grid reveal"><?php
+foreach($tips as $i=>$tip):
+?>
+
+<article>
+<span><?=str_pad((string)($i+1),2,'0',STR_PAD_LEFT)?>
+
+</span>
+<h3><?=h($tip['title'])?>
+
+</h3>
+<a href="<?=h($tip['url']?:'#')?>">Read guide →</a>
+</article><?php
+endforeach;
+?>
+
+</div>
+</div>
+</section>
+<?php
+endif;
+?>
+<?php
+if(section_enabled('estimate')):
+?>
+
+<section class="section estimate-section section-anchor" id="estimate" style="order:<?=section_order('estimate')?>">
+<div class="container estimate-grid">
+<div class="estimate-copy reveal">
+<span class="kicker">FREE ESTIMATE</span>
+<h2 data-content-key="estimate_title"><?=h(c('estimate_title'))?>
+
+</h2>
+<p data-content-key="estimate_text"><?=h(c('estimate_text'))?>
+
+</p>
+<div class="estimate-contact">
+<a href="tel:<?=$digits?>">
+<b>Call</b>
+<span><?=h($phone)?>
+
+</span>
+</a>
+<a href="mailto:<?=h($email)?>">
+<b>Email</b>
+<span><?=h($email)?>
+
+</span>
+</a>
+</div>
+</div>
+<form class="estimate-form reveal" id="estimateForm" enctype="multipart/form-data">
+<div class="form-honeypot" aria-hidden="true">
+<label>Website URL<input type="text" name="website_url" tabindex="-1" autocomplete="off">
+</label>
+</div>
+<div class="field-row">
+<label>Full Name<input type="text" name="name" placeholder="Your name">
+</label>
+<label>Phone<input type="tel" name="phone" placeholder="(000) 000-0000">
+</label>
+</div>
+<div class="field-row">
+<label>Email<input type="email" name="email" placeholder="you@email.com" autocomplete="email" aria-describedby="estimateEmailStatus">
+<span class="email-validation-status" id="estimateEmailStatus" data-email-status aria-live="polite"></span>
+</label>
+<label>Desired Date<input type="date" name="date">
+</label>
+</div>
+<label>Address<input type="text" name="address" placeholder="Project address">
+</label>
+<label>Service Needed<select name="service">
+<option value="">Select a service</option><?php
+foreach($services as $s):
+?>
+
+<option><?=h($s['title'])?>
+
+</option><?php
+endforeach;
+?>
+
+</select>
+</label>
+<label>Tell us about your project<textarea name="message" rows="4" placeholder="A short description is enough to get started.">
+</textarea>
+</label>
+<div class="public-upload" data-public-upload tabindex="0">
+<div class="public-upload-icon">＋</div>
+<strong>Add project photos</strong>
+<span>Drag & drop, paste from clipboard, or choose files</span>
+<small>Optional · JPG, PNG or WebP · up to 8 images</small>
+<input type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple>
+<div class="public-upload-preview" data-public-upload-preview>
+</div>
+</div>
+<?php if($turnstileSiteKey!==''): ?>
+<div class="turnstile-wrap">
+<div class="cf-turnstile" data-sitekey="<?=h($turnstileSiteKey)?>" data-theme="light"></div>
+</div>
+<?php endif; ?>
+<button type="submit" class="btn btn-primary btn-full">Send Free Estimate Request</button>
+<a class="whatsapp-btn" target="_blank" rel="noopener" href="https://wa.me/<?=$digits?>
+
+?text=Hello%2C%20I%20just%20submitted%20a%20free%20estimate%20request%20on%20your%20website.%20I%20would%20like%20to%20receive%20more%20information%20about%20my%20project.">Continue on WhatsApp</a>
+<p class="form-note">You can submit the form even if you do not attach a photo.</p>
+</form>
+</div>
+</section>
+<?php
+endif;
+?>
+<?php
+if(section_enabled('contact')):
+?>
+
+<section class="section contact-section section-anchor" id="contact" style="order:<?=section_order('contact')?>">
+<div class="container contact-grid">
+<div class="reveal contact-intro">
+<span class="kicker">CONTACT</span>
+<h2 data-content-key="contact_title"><?=h(c('contact_title'))?>
+
+</h2>
+<p>Choose the easiest way to reach Castro's Ready.</p>
+<div class="contact-accent">
+<span>
+</span>
+<b>Fast, direct, professional contact.</b>
+</div>
+</div>
+<div class="contact-links reveal">
+<a class="contact-card" href="tel:<?=$digits?>">
+<i class="contact-icon">☎</i>
+<div>
+<span>Phone</span>
+<strong><?=h($phone)?>
+
+</strong>
+<small>Call our team directly</small>
+</div>
+<b class="contact-arrow">→</b>
+</a>
+<a class="contact-card" target="_blank" rel="noopener" href="https://wa.me/<?=$digits?>">
+<i class="contact-icon">WA</i>
+<div>
+<span>WhatsApp</span>
+<strong>Start a conversation</strong>
+<small>Quick project questions</small>
+</div>
+<b class="contact-arrow">→</b>
+</a>
+<a class="contact-card" href="mailto:<?=h($email)?>">
+<i class="contact-icon">✉</i>
+<div>
+<span>Email</span>
+<strong><?=h($email)?>
+
+</strong>
+<small>Send project information</small>
+</div>
+<b class="contact-arrow">→</b>
+</a>
+<a class="contact-card" target="_blank" rel="noopener" href="<?=h($settings['youtube']??'#')?>">
+<i class="contact-icon">▶</i>
+<div>
+<span>YouTube</span>
+<strong>@CastrosReady</strong>
+<small>See more of our work</small>
+</div>
+<b class="contact-arrow">→</b>
+</a>
+</div>
+</div>
+</section><?php
+endif;
+?>
+
+</main>
+<footer>
+<div class="container footer-grid">
+<div class="footer-brand">
+<img src="assets/logo.jpg" alt="Castro's Ready logo">
+<div>
+<strong>CASTRO'S READY</strong>
+<span>Painting · Repairs · Maintenance</span>
+</div>
+</div>
+<div>
+<strong>Explore</strong>
+<a href="#about" data-scroll>About</a>
+<a href="#services" data-scroll>Services</a>
+<?php if(!empty($videos)): ?><a href="#videos" data-scroll>Videos</a><?php endif; ?>
+<a href="#gallery" data-scroll>Gallery</a>
+</div>
+<div>
+<strong>Contact</strong>
+<a href="tel:<?=$digits?>"><?=h($phone)?>
+
+</a>
+<a href="mailto:<?=h($email)?>">Email us</a>
+<a href="#estimate" data-scroll>Free Estimate</a>
+</div>
+<div>
+<strong>Website</strong>
+<span><?=h($settings['website']??'castrosready.us')?>
+
+</span>
+<span>© 2026 Castro's Ready</span>
+</div>
+</div><?php
+if(($settings['developer_credit_enabled']??'0')==='1'):
+?>
+
+<div class="developer-credit"><?=h($settings['developer_credit_text']??'Website by ES MULTISERVICIOS')?>
+
+</div><?php
+endif;
+?>
+
+</footer>
+<div class="toast" id="toast">Thank you.</div>
+<div class="site-lightbox" data-site-lightbox aria-hidden="true">
+<button type="button" data-site-lightbox-close aria-label="Close">×</button>
+<figure>
+<img src="" alt="Project preview" data-site-lightbox-img>
+<figcaption data-site-lightbox-caption>
+</figcaption>
+</figure>
+</div><?php
+if(($settings['whatsapp_enabled']??'1')==='1'):
+?>
+
+<a class="floating-whatsapp <?=($settings['whatsapp_position']??'right')==='left'?'left':''?>" href="https://wa.me/<?=$digits?>
+
+?text=<?=rawurlencode($settings['whatsapp_message']??"Hello, I would like more information about Castro's Ready services.")?>" target="_blank" rel="noopener" aria-label="Contact Castro's Ready on WhatsApp">
+<span>WA</span>
+<b>WhatsApp</b>
+</a><?php
+endif;
+?>
+
+<?php if($turnstileSiteKey!==''): ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<?php endif; ?>
+<script src="<?=h(versioned_asset('assets/site.js', 'assets/site.js'))?>">
+</script>
 </body>
 </html>

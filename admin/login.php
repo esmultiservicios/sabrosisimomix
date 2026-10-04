@@ -1,56 +1,136 @@
 <?php
-declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
-if(current_admin()){header('Location: dashboard.php');exit;}
-
-$error='';
-$prefill=trim((string)($_GET['email']??''));
-if($prefill==='' && isset($_COOKIE['cms_remember_login']))$prefill=trim((string)$_COOKIE['cms_remember_login']);
-if($_SERVER['REQUEST_METHOD']==='POST'){
-    $prefill=trim((string)($_POST['login']??''));
-    try{
-        verify_csrf();
-        $login=$prefill;$pass=(string)($_POST['password']??'');
-        $st=db()->prepare('SELECT * FROM admin_users WHERE active=1 AND (username=? OR email=?) LIMIT 1');
-        $st->execute([$login,$login]);$u=$st->fetch();
-        if(!$u||!password_verify($pass,$u['password_hash']))throw new RuntimeException('Usuario o contraseña incorrectos.');
-        $remember=isset($_POST['remember_login']);
-        $secure=!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off';
-        setcookie('cms_remember_login',$remember?$login:'',[
-            'expires'=>$remember?time()+60*60*24*30:time()-3600,
-            'path'=>'/','secure'=>$secure,'httponly'=>true,'samesite'=>'Lax'
-        ]);
-        session_regenerate_id(true);$_SESSION['admin_id']=(int)$u['id'];
-        log_activity('login','Administrator logged in');
-        header('Location: dashboard.php');exit;
-    }catch(Throwable $e){$error=$e->getMessage();}
+if(admin_count()===0) {
+    header('Location: setup.php');
+    exit;
 }
-$installed=isset($_GET['installed']);
-$resetDone=isset($_GET['reset']);
+if(is_logged_in()) {
+    header('Location: dashboard.php');
+    exit;
+}
+$error='';
+$set=settings();
+$favicon=$set['favicon_path']??($set['admin_logo_path']??'assets/logo.jpg');
+$brand=$set['admin_brand_name']??"Castro's Ready Admin";
+$logo=$set['admin_logo_path']??'assets/logo.jpg';
+if($_SERVER['REQUEST_METHOD']==='POST') {
+    verify_csrf();
+    $u=trim((string)($_POST['username']??''));
+    $p=(string)($_POST['password']??'');
+    $st=db()->prepare('SELECT id,username,password_hash,active,two_factor_enabled,two_factor_secret_enc FROM admin_users WHERE username=? LIMIT 1');
+    $st->execute([$u]);
+    $row=$st->fetch();
+    if($row&&(int)$row['active']===1&&password_verify($p,$row['password_hash'])) {
+        if((int)($row['two_factor_enabled']??0)===1&&!empty($row['two_factor_secret_enc'])) {
+            session_regenerate_id(true);
+            $_SESSION['cr_2fa_pending_id']=(int)$row['id'];
+            $_SESSION['cr_2fa_pending_user']=$row['username'];
+            $_SESSION['cr_2fa_remember']=isset($_POST['remember_me'])?1:0;
+            header('Location: two-factor.php');
+            exit;
+        }
+        session_regenerate_id(true);
+        $_SESSION['cr_admin_id']=(int)$row['id'];
+        $_SESSION['cr_admin_user']=$row['username'];
+        db()->prepare('UPDATE admin_users SET last_login_at=NOW(),last_login_ip=?,last_user_agent=? WHERE id=?')->execute([request_ip(),request_user_agent(),(int)$row['id']]);
+        record_login_event((int)$row['id'],$u,true);
+        log_activity('login','Administrator signed in');
+        admin_notify('info','Administrator login',($row['username']??'Administrator').' signed in to the CMS.','security.php');
+        if(isset($_POST['remember_me'])) create_remember_token((int)$row['id']);
+        else clear_remember_cookie();
+        sync_admin_session();
+        header('Location: dashboard.php');
+        exit;
+    }
+    record_login_event($row?(int)$row['id']:null,$u,false);
+    $error=($row&&(int)($row['active']??0)!==1)?'This account is disabled. Contact an administrator.':'Invalid username or password.';
+}
 ?>
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Administración · Sabrosísimo Mix</title><link rel="stylesheet" href="../assets/css/auth.css?v=<?=@filemtime(ROOT_DIR.'/assets/css/auth.css')?>"><link rel="stylesheet" href="../assets/vendor/ui-feedback.css?v=<?=@filemtime(ROOT_DIR.'/assets/vendor/ui-feedback.css')?>"></head>
-<body class="auth-page">
-<form class="auth-card" method="post" autocomplete="on">
-  <div class="auth-brand"><span class="auth-mark">SM</span><div class="auth-brand-copy"><strong>Sabrosísimo Mix</strong><small>CMS Premium</small></div></div>
-  <h1>Bienvenido</h1><p class="auth-subtitle">Ingresa para administrar el sitio.</p>
-  <?php if($installed):?><div hidden data-auth-notify data-type="success" data-title="Instalación completada" data-message="Tu cuenta ya está lista. Inicia sesión para entrar al panel."></div><?php endif;?>
-  <?php if($resetDone):?><div hidden data-auth-notify data-type="success" data-title="Contraseña actualizada" data-message="Tu contraseña fue cambiada correctamente. Ya puedes iniciar sesión."></div><?php endif;?>
-  <?php if($error):?><div hidden data-auth-notify data-type="error" data-title="No se pudo iniciar sesión" data-message="<?=h($error)?>"></div><?php endif;?>
-  <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-  <div class="auth-form">
-    <label class="auth-field"><span>Usuario o correo</span><input class="auth-input" name="login" value="<?=h($prefill)?>" autocomplete="username" autofocus required></label>
-    <label class="auth-field"><span>Contraseña</span><span class="auth-input-wrap"><input class="auth-input has-toggle" type="password" name="password" autocomplete="current-password" required><button class="auth-toggle-password" type="button" data-password-toggle>Mostrar</button></span></label>
-    <div class="auth-row">
-      <label class="remember-control"><input type="checkbox" name="remember_login" value="1" <?=isset($_COOKIE['cms_remember_login'])?'checked':''?>><span class="remember-dot" aria-hidden="true"></span><span>Recordar usuario</span></label>
-      <a class="auth-link" href="forgot-password.php">¿Olvidaste tu contraseña?</a>
-    </div>
-    <button class="auth-button" type="submit">Ingresar</button>
-  </div>
-  <a class="auth-back" href="../">← Volver al sitio</a>
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="../<?=h($favicon)?>">
+<link rel="shortcut icon" href="../<?=h($favicon)?>">
+<title>Admin Login</title>
+<link rel="stylesheet" href="<?=h(versioned_asset('../assets/vendor/sweetalert2/sweetalert2.min.css', 'assets/vendor/sweetalert2/sweetalert2.min.css'))?>">
+<link rel="stylesheet" href="<?=h(versioned_asset('../assets/vendor/show-notify/showNotify.css', 'assets/vendor/show-notify/showNotify.css'))?>">
+<link rel="stylesheet" href="<?=h(versioned_asset('admin.css', 'admin/admin.css'))?>">
+</head>
+<body>
+<main class="auth-wrap">
+<div class="auth-card auth-card-premium">
+<div class="auth-brand-mark">
+<img src="../<?=h($logo)?>" alt="">
+</div>
+<p class="eyebrow">SECURE ADMINISTRATION</p>
+<h1><?=h($brand)?>
+
+</h1>
+<p>Manage website content, customer requests and system settings.</p><?php
+if(isset($_GET['setup'])):
+?>
+
+<div class="alert success">Administrator created. You can log in now.</div><?php
+endif;
+?>
+<?php
+if(isset($_GET['reset'])):
+?>
+
+<div class="alert success">Password updated. Sign in with your new password.</div><?php
+endif;
+?>
+<?php
+if(isset($_GET['revoked'])):
+?>
+
+<div class="alert warning">That administrator session was signed out from the Security Center.</div><?php
+endif;
+?>
+<?php
+if(isset($_GET['disabled'])):
+?>
+
+<div class="alert warning">Your administrator account is disabled.</div><?php
+endif;
+?>
+<?php
+if($error):
+?>
+
+<div class="alert error"><?=h($error)?>
+
+</div><?php
+endif;
+?>
+
+<form method="post">
+<input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+<label>Username<input name="username" required autocomplete="username" autofocus>
+</label>
+<label>Password<input type="password" name="password" required autocomplete="current-password">
+</label>
+<div class="auth-options">
+<label class="remember-check cr-check">
+<input type="checkbox" name="remember_me" value="1">
+<span class="cr-check-box" aria-hidden="true">
+</span>
+<span class="cr-check-text">Remember me</span>
+</label>
+<a href="forgot-password.php">Forgot password?</a>
+</div>
+<button type="submit">Log in securely</button>
 </form>
-<script src="../assets/vendor/ui-feedback.js?v=<?=@filemtime(ROOT_DIR.'/assets/vendor/ui-feedback.js')?>"></script>
-<script>
-document.querySelector('[data-password-toggle]')?.addEventListener('click',e=>{const b=e.currentTarget,i=b.previousElementSibling,show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'Ocultar':'Mostrar';});
-document.querySelectorAll('[data-auth-notify]').forEach(el=>window.showNotify?.(el.dataset.message,el.dataset.type,{title:el.dataset.title,duration:5600}));
+<div class="auth-footer-note">Protected administrator access · Castro's Ready CMS</div>
+</div>
+</main>
+<script src="<?=h(versioned_asset('../assets/vendor/sweetalert2/sweetalert2.all.min.js', 'assets/vendor/sweetalert2/sweetalert2.all.min.js'))?>">
 </script>
-</body></html>
+<script src="<?=h(versioned_asset('../assets/vendor/show-notify/showNotify.js', 'assets/vendor/show-notify/showNotify.js'))?>">
+</script>
+<script>document.querySelectorAll(".alert.success,.alert.error,.alert.info,.alert.warning").forEach(function(el){var t=el.classList.contains("error")?"error":el.classList.contains("warning")?"warning":el.classList.contains("success")?"success":"info";if(window.showNotify){showNotify(el.textContent.trim(),t);el.hidden=true;}});</script>
+</body>
+</html>
