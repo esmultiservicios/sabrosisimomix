@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once dirname(__DIR__).'/core/bootstrap.php';
 require_once dirname(__DIR__).'/core/EmailService.php';
-if(session_status()!==PHP_SESSION_ACTIVE)session_start();
+app_session_start();
 if(current_admin()){header('Location: dashboard.php');exit;}
 
 $message='';$type='info';$title='';$email=trim((string)($_POST['email']??''));

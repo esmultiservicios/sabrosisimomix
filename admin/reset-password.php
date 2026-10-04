@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once dirname(__DIR__).'/core/bootstrap.php';
-if(session_status()!==PHP_SESSION_ACTIVE)session_start();
+app_session_start();
 if(current_admin()){header('Location: dashboard.php');exit;}
 ensure_password_reset_table();
 $token=trim((string)($_GET['token']??$_POST['token']??''));$error='';$valid=false;$reset=null;
@@ -9,7 +9,7 @@ if($token!==''){
   $hash=hash('sha256',$token);$st=db()->prepare('SELECT r.*,u.email,u.full_name FROM admin_password_resets r JOIN admin_users u ON u.id=r.admin_id WHERE r.token_hash=? AND r.used_at IS NULL AND r.expires_at>NOW() AND u.active=1 LIMIT 1');$st->execute([$hash]);$reset=$st->fetch();$valid=(bool)$reset;
 }
 if($_SERVER['REQUEST_METHOD']==='POST'&&$valid){
-  try{verify_csrf();$pass=(string)($_POST['password']??'');$confirm=(string)($_POST['password_confirm']??'');if(strlen($pass)<8)throw new RuntimeException('La nueva contraseña debe tener al menos 8 caracteres.');if($pass!==$confirm)throw new RuntimeException('Las contraseñas no coinciden.');db()->beginTransaction();db()->prepare('UPDATE admin_users SET password_hash=? WHERE id=?')->execute([password_hash($pass,PASSWORD_DEFAULT),(int)$reset['admin_id']]);db()->prepare('UPDATE admin_password_resets SET used_at=NOW() WHERE id=?')->execute([(int)$reset['id']]);db()->prepare('UPDATE admin_password_resets SET used_at=NOW() WHERE admin_id=? AND used_at IS NULL')->execute([(int)$reset['admin_id']]);db()->commit();header('Location: login.php?reset=1&email='.rawurlencode((string)$reset['email']));exit;}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();$error=$e->getMessage();}
+  try{verify_csrf();$pass=(string)($_POST['password']??'');$confirm=(string)($_POST['password_confirm']??'');if(strlen($pass)<8)throw new RuntimeException('La nueva contraseña debe tener al menos 8 caracteres.');if($pass!==$confirm)throw new RuntimeException('Las contraseñas no coinciden.');db()->beginTransaction();db()->prepare('UPDATE admin_users SET password_hash=? WHERE id=?')->execute([password_hash($pass,PASSWORD_DEFAULT),(int)$reset['admin_id']]);db()->prepare('UPDATE admin_password_resets SET used_at=NOW() WHERE id=?')->execute([(int)$reset['id']]);db()->prepare('UPDATE admin_password_resets SET used_at=NOW() WHERE admin_id=? AND used_at IS NULL')->execute([(int)$reset['admin_id']]);db()->commit();AuthSessionManager::revokeAllForAdmin((int)$reset['admin_id'],'password_reset');header('Location: login.php?reset=1&email='.rawurlencode((string)$reset['email']));exit;}catch(Throwable $e){if(db()->inTransaction())db()->rollBack();$error=$e->getMessage();}
 }
 ?>
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" type="image/x-icon" href="../assets/favicon/favicon.ico?v=1"><link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon/favicon-32x32.png?v=1"><link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon/favicon-16x16.png?v=1"><link rel="apple-touch-icon" sizes="180x180" href="../assets/favicon/apple-touch-icon.png?v=1"><link rel="manifest" href="../assets/favicon/site.webmanifest?v=1"><title>Nueva contraseña · Sabrosísimo Mix</title><link rel="stylesheet" href="../assets/css/auth.css?v=<?=@filemtime(ROOT_DIR.'/assets/css/auth.css')?>"><link rel="stylesheet" href="../assets/vendor/ui-feedback.css?v=<?=@filemtime(ROOT_DIR.'/assets/vendor/ui-feedback.css')?>"></head><body class="auth-page">

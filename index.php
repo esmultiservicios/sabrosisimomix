@@ -5,9 +5,7 @@ if (!is_file(__DIR__ . '/config/install.lock') || !is_file(__DIR__ . '/config/co
     exit;
 }
 require_once __DIR__ . '/core/public.php';
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+app_session_start();
 
 if (setting('maintenance_mode', '0') === '1' && !isset($_GET['preview'])) {
     http_response_code(503);

@@ -58,7 +58,7 @@ function record_public_visit(string $path='/'): bool {
         if(current_admin()) return false;
         if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET') return false;
         ensure_visit_tables();
-        if(session_status()!==PHP_SESSION_ACTIVE)session_start();
+        app_session_start();
         if(empty($_SESSION['public_visitor_key'])) {
             $_SESSION['public_visitor_key']=hash('sha256',random_bytes(32));
         }
@@ -94,6 +94,8 @@ function db(): PDO {
     ]);
     return $pdo;
 }
+
+require_once __DIR__.'/AuthSession.php';
 function h(mixed $v): string {return htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 
 function rich_text_sanitize(string $html): string {
@@ -167,24 +169,52 @@ function save_setting(string $key,string $value): void {
     $st->execute([$key,$value]);
 }
 function csrf_token(): string {
-    if(session_status()!==PHP_SESSION_ACTIVE)session_start();
+    app_session_start();
     if(empty($_SESSION['csrf']))$_SESSION['csrf']=bin2hex(random_bytes(32));
     return $_SESSION['csrf'];
 }
 function verify_csrf(): void {
-    if(session_status()!==PHP_SESSION_ACTIVE)session_start();
+    app_session_start();
     $sent=(string)($_POST['csrf']??'');
     if(!hash_equals((string)($_SESSION['csrf']??''),$sent))throw new RuntimeException('The session token expired. Refresh the page and try again.');
 }
-function flash(string $type,string $message): void {if(session_status()!==PHP_SESSION_ACTIVE)session_start();$_SESSION['flash']=['type'=>$type,'message'=>$message];}
-function consume_flash(): ?array {if(session_status()!==PHP_SESSION_ACTIVE)session_start();$f=$_SESSION['flash']??null;unset($_SESSION['flash']);return $f;}
+function flash(string $type,string $message): void {app_session_start();$_SESSION['flash']=['type'=>$type,'message'=>$message];}
+function consume_flash(): ?array {app_session_start();$f=$_SESSION['flash']??null;unset($_SESSION['flash']);return $f;}
 function current_admin(): ?array {
-    if(session_status()!==PHP_SESSION_ACTIVE)session_start();
-    $id=(int)($_SESSION['admin_id']??0);if(!$id)return null;
-    static $user=null;if($user&&isset($user['id'])&&(int)$user['id']===$id)return $user;
-    $st=db()->prepare('SELECT u.*,r.role_name FROM admin_users u LEFT JOIN admin_roles r ON r.id=u.role_id WHERE u.id=? AND u.active=1');$st->execute([$id]);$user=$st->fetch()?:null;return $user;
+    app_session_start();
+    $id=(int)($_SESSION['admin_id']??0);
+    if($id<=0)return null;
+    if(!AuthSessionManager::validateCurrent())return null;
+    static $user=null;
+    if($user&&isset($user['id'])&&(int)$user['id']===$id)return $user;
+    $st=db()->prepare('SELECT u.*,r.role_name FROM admin_users u LEFT JOIN admin_roles r ON r.id=u.role_id WHERE u.id=? AND u.active=1');
+    $st->execute([$id]);
+    $user=$st->fetch()?:null;
+    if(!$user){
+        AuthSessionManager::expire('security');
+        return null;
+    }
+    return $user;
 }
-function require_login(): void {if(!current_admin()){header('Location: login.php');exit;}}
+function require_login(): void {
+    if(current_admin())return;
+    $reason=AuthSessionManager::lastExpiryReason();
+    if(AuthSessionManager::isAjaxOrApiRequest()){
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok'=>false,
+            'error'=>'unauthorized',
+            'reason'=>$reason?:'authentication_required',
+            'message'=>$reason?AuthSessionManager::expiryMessage($reason):'Authentication required.'
+        ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+    $target='login.php';
+    if($reason)$target.='?expired='.rawurlencode($reason);
+    header('Location: '.$target);
+    exit;
+}
 function user_can(string $permission): bool {
     $u=current_admin();if(!$u)return false;
     if(($u['role_name']??'')==='Administrator')return true;

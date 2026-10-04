@@ -261,9 +261,7 @@ final class PublicFormGuard
 
     private static function enforceSessionRateLimit(string $bucket, int $limit, int $windowSeconds): void
     {
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
-        }
+        app_session_start();
         $now = time();
         $entry = $_SESSION['rate_limits'][$bucket] ?? ['start' => $now, 'count' => 0];
         if (($now - (int) ($entry['start'] ?? $now)) >= $windowSeconds) {

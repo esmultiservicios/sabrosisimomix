@@ -974,16 +974,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     });
 
-    form.addEventListener('submit', e => {
+    form.addEventListener('submit', async e => {
+        if (form.dataset.installApproved === '1') {
+            installBtn.disabled = true;
+            installBtn.textContent = 'Instalando…';
+            return;
+        }
+
+        e.preventDefault();
         for (let step = 1; step <= 3; step++) {
             if (!validateStep(step)) {
-                e.preventDefault();
                 showStep(step);
                 return;
             }
         }
+
+        updateReview();
+        const result = window.Swal ? await Swal.fire({
+            icon: 'question',
+            eyebrow: 'CONFIRMACIÓN FINAL',
+            title: '¿Deseas instalar el sistema?',
+            text: 'Se aplicará la configuración indicada y comenzará la instalación del CMS. Nada se ejecutará hasta que confirmes.',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, instalar',
+            cancelButtonText: 'Revisar datos',
+            allowOutsideClick: false
+        }) : { isConfirmed: false };
+
+        if (!result.isConfirmed) return;
+        form.dataset.installApproved = '1';
         installBtn.disabled = true;
         installBtn.textContent = 'Instalando…';
+        if (form.requestSubmit) form.requestSubmit(installBtn); else form.submit();
     });
 
 

@@ -9,9 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ./');
     exit;
 }
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+app_session_start();
 
 $movedFiles = [];
 $pdo = null;

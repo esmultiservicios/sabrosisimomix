@@ -422,7 +422,7 @@ window.addEventListener('orientationchange',()=> {
   )); // Secure logout confirmation.
   qa('[data-logout-confirm]').forEach(link=>link.addEventListener('click',async e=> {
     e.preventDefault();const href=link.getAttribute('href');const result=window.Swal?await Swal.fire( {
-      icon:'question',title:'Log out of the administrator?',text:'Your current admin session will be closed.',showCancelButton:true,confirmButtonText:'Yes, log out',cancelButtonText:'Stay signed in',allowOutsideClick:false
+      icon:'question',eyebrow:'CERRAR SESIÓN',title:'¿Deseas cerrar sesión?',text:'Tu sesión administrativa se cerrará de forma segura. Puedes cancelar y continuar trabajando.',showCancelButton:true,confirmButtonText:'Sí, cerrar sesión',cancelButtonText:'Cancelar',allowOutsideClick:false
     }
     ): {
       isConfirmed:false

@@ -31,6 +31,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $st=$pdo->prepare('UPDATE admin_users SET full_name=?,username=?,email=?,password_hash=? WHERE id=?');
             $st->execute([$fullName,$username,$email,password_hash($newPassword,PASSWORD_DEFAULT),(int)$me['id']]);
             log_activity('profile.password','Administrator updated profile and password');
+            AuthSessionManager::revokeAllForAdmin((int)$me['id'],'password_change');
+            AuthSessionManager::logout(false);
+            header('Location: login.php?password_changed=1&email='.rawurlencode($email));
+            exit;
         }else{
             $st=$pdo->prepare('UPDATE admin_users SET full_name=?,username=?,email=? WHERE id=?');
             $st->execute([$fullName,$username,$email,(int)$me['id']]);

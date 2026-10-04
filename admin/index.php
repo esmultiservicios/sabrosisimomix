@@ -2,15 +2,17 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/core/bootstrap.php';
-
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+app_session_start();
 
 if (current_admin()) {
     header('Location: dashboard.php');
     exit;
 }
 
-header('Location: login.php');
+$reason = AuthSessionManager::lastExpiryReason();
+$target = 'login.php';
+if ($reason) {
+    $target .= '?expired=' . rawurlencode($reason);
+}
+header('Location: ' . $target);
 exit;

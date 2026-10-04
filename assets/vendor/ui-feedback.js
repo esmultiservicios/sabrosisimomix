@@ -2,6 +2,14 @@
   'use strict';
 
   const ICONS = { success: '✓', danger: '!', error: '!', warning: '!', info: 'i', question: '?' };
+  const DIALOG_ICONS = {
+    success: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    error: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>',
+    danger: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>',
+    warning: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4M12 17h.01"/></svg>',
+    info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>',
+    question: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .6-1.5 1.1-1.5 2.2M12 17h.01"/></svg>'
+  };
 
   function ensureToastHost() {
     let host = document.querySelector('[data-notify-host]');
@@ -115,7 +123,7 @@
       modal.dataset.type = type;
       title.textContent = options.title || 'Confirmación';
       eyebrow.textContent = options.eyebrow || (type === 'warning' ? 'ATENCIÓN' : 'CONFIRMACIÓN');
-      icon.textContent = ICONS[type] || ICONS.info;
+      icon.innerHTML = DIALOG_ICONS[type] || DIALOG_ICONS.info;
 
       message.innerHTML = '';
       if (options.html) {
