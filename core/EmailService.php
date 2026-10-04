@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/bootstrap.php';
 require_once __DIR__.'/Security.php';
+require_once __DIR__.'/EmailValidator.php';
 
 final class EmailTemplates {
     private static function brandName(array $settings=[]): string {
@@ -127,27 +128,126 @@ final class EmailService {
         save_setting('mail_method',$method);save_setting('mail_config',$method==='none'?'':Security::encrypt(json_encode($config,JSON_UNESCAPED_SLASHES)));
     }
     public function test(string $method,array $config,string $recipient): array {
-        if(!filter_var($recipient,FILTER_VALIDATE_EMAIL))return ['success'=>false,'message'=>'Ingresa un correo válido para realizar la prueba.'];
+        $validation=EmailValidator::validate($recipient,true);
+        if(!($validation['valid']??false)){
+            $this->logRejectedRecipient($recipient,$validation);
+            return ['success'=>false,'message'=>$this->recipientValidationMessage($validation)];
+        }
+        $recipient=(string)$validation['email'];
         $result=$this->sendUsing($method,$config,$recipient,'Prueba de correo · '.(string)setting('site_name','Sabrosísimo Mix'),EmailTemplates::test($method,$recipient),'La configuración de correo funciona correctamente.');
         if(($result['success']??false)===true){
             $result['message']='Conexión verificada. El correo de prueba fue enviado correctamente a '.$recipient.'.';
         }
         return $result;
     }
-    public function sendWithFallback(array $purposes,string $to,string $subject,string $html,string $text='',array $headers=[],array $options=[]): array {
-        $saved=$this->getConfiguration();if($saved['method']==='none')return ['success'=>false,'message'=>'Email is not configured yet.'];
+    public function sendWithFallback(array $purposes,string|array $to,string $subject,string $html,string $text='',array $headers=[],array $options=[]): array {
+        $saved=$this->getConfiguration();
+        if($saved['method']==='none')return ['success'=>false,'message'=>'Email is not configured yet.'];
         return $this->sendUsing($saved['method'],$saved['config'],$to,$subject,$html,$text,$options['attachments']??[]);
     }
-    private function sendUsing(string $method,array $cfg,string $to,string $subject,string $html,string $text='',array $attachments=[]): array {
+
+    private function sendUsing(string $method,array $cfg,string|array $to,string $subject,string $html,string $text='',array $attachments=[]): array {
         try{
             if(!str_contains($html,'data-cms-email-template="1"')){
                 $html=EmailTemplates::layout($subject,$html,['eyebrow'=>'NOTIFICACIÓN']);
             }
-            if($method==='smtp')return $this->sendSmtp($cfg,$to,$subject,$html,$text,$attachments);
-            if($method==='graph')return $this->sendGraph($cfg,$to,$subject,$html,$attachments);
-            return ['success'=>false,'message'=>'No hay un método de correo configurado.'];
-        }catch(Throwable $e){return ['success'=>false,'message'=>$e->getMessage()];}
+
+            $recipients=$this->normalizeRecipients($to);
+            $validRecipients=[];
+            $rejected=[];
+            foreach($recipients as $recipient){
+                $validation=EmailValidator::validate($recipient,true);
+                if(!($validation['valid']??false)){
+                    $this->logRejectedRecipient($recipient,$validation);
+                    $rejected[]=['email'=>$recipient,'reason'=>$validation['reason']??'invalid','message'=>$validation['message']??'Correo inválido'];
+                    continue;
+                }
+                $validRecipients[]=(string)$validation['email'];
+            }
+
+            if(!$validRecipients){
+                return [
+                    'success'=>false,
+                    'message'=>'No hay destinatarios válidos para enviar el correo.',
+                    'sent'=>[],
+                    'rejected'=>$rejected,
+                ];
+            }
+
+            $sent=[];
+            $failed=[];
+            foreach($validRecipients as $recipient){
+                try{
+                    $result=match($method){
+                        'smtp'=>$this->sendSmtp($cfg,$recipient,$subject,$html,$text,$attachments),
+                        'graph'=>$this->sendGraph($cfg,$recipient,$subject,$html,$attachments),
+                        default=>['success'=>false,'message'=>'No hay un método de correo configurado.'],
+                    };
+                    if(($result['success']??false)===true){
+                        $sent[]=$recipient;
+                    }else{
+                        $failed[]=['email'=>$recipient,'message'=>(string)($result['message']??'No se pudo enviar el correo.')];
+                    }
+                }catch(Throwable $e){
+                    $failed[]=['email'=>$recipient,'message'=>$e->getMessage()];
+                }
+            }
+
+            $success=count($sent)>0;
+            $message=$success
+                ? 'Correo enviado correctamente a '.count($sent).' destinatario(s) válido(s).'
+                : 'No se pudo enviar el correo a los destinatarios válidos.';
+            if($rejected){
+                $message.=' '.count($rejected).' destinatario(s) inválido(s) fueron omitidos.';
+            }
+            if($failed){
+                $message.=' '.count($failed).' envío(s) válido(s) fallaron durante la entrega.';
+            }
+
+            return [
+                'success'=>$success,
+                'message'=>$message,
+                'sent'=>$sent,
+                'rejected'=>$rejected,
+                'failed'=>$failed,
+            ];
+        }catch(Throwable $e){
+            return ['success'=>false,'message'=>$e->getMessage(),'sent'=>[],'rejected'=>[],'failed'=>[]];
+        }
     }
+
+    private function normalizeRecipients(string|array $to): array {
+        $items=is_array($to)?$to:(preg_split('/[;,]+/', $to) ?: []);
+        $normalized=[];
+        foreach($items as $item){
+            if(!is_scalar($item))continue;
+            $email=trim((string)$item);
+            if($email==='')continue;
+            $normalized[]=$email;
+        }
+        return array_values(array_unique($normalized));
+    }
+
+    private function logRejectedRecipient(string $recipient,array $validation): void {
+        $reason=(string)($validation['reason']??'invalid');
+        $safe=preg_replace('/[\r\n]+/',' ',trim($recipient)) ?? '';
+        error_log('[EmailService] Recipient rejected before send: '.$safe.' | reason='.$reason);
+    }
+
+    private function recipientValidationMessage(array $validation): string {
+        $reason=(string)($validation['reason']??'invalid');
+        if($reason==='domain_typo' && !empty($validation['suggestion'])){
+            return 'El destinatario parece tener un error. ¿Quisiste escribir '.(string)$validation['suggestion'].'?';
+        }
+        return match($reason){
+            'disposable_domain'=>'El destinatario utiliza un dominio de correo temporal o desechable.',
+            'obvious_fake'=>'El destinatario parece ser un correo ficticio o de ejemplo.',
+            'domain_no_mail_dns'=>'El dominio del destinatario no tiene registros válidos para recibir correo.',
+            'invalid_characters'=>'El destinatario contiene caracteres no permitidos.',
+            default=>'El destinatario no tiene un formato de correo válido.',
+        };
+    }
+
     private function sendGraph(array $c,string $to,string $subject,string $html,array $attachments): array {
         foreach(['tenant_id','client_id','client_secret','sender_email'] as $k)if(trim((string)($c[$k]??''))==='')throw new RuntimeException('Microsoft Graph configuration is incomplete.');
         if(!function_exists('curl_init'))throw new RuntimeException('cURL is required for Microsoft Graph.');

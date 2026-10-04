@@ -1,110 +1,49 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/EmailValidator.php';
+
 final class PublicFormGuard
 {
-    private const TYPO_DOMAINS = [
-        'gmail.con' => 'gmail.com',
-        'gmail.co' => 'gmail.com',
-        'gmail.cm' => 'gmail.com',
-        'gmial.com' => 'gmail.com',
-        'gmal.com' => 'gmail.com',
-        'gamil.com' => 'gmail.com',
-        'hotmal.com' => 'hotmail.com',
-        'hotmai.com' => 'hotmail.com',
-        'hotmail.con' => 'hotmail.com',
-        'outlook.con' => 'outlook.com',
-        'outlok.com' => 'outlook.com',
-        'outllok.com' => 'outlook.com',
-        'yahoo.con' => 'yahoo.com',
-        'yaho.com' => 'yahoo.com',
-        'icloud.con' => 'icloud.com',
-        'iclod.com' => 'icloud.com',
-        'protonmail.con' => 'protonmail.com',
-    ];
-
-    private const DISPOSABLE_DOMAINS = [
-        '10minutemail.com','10minutemail.net','20minutemail.com','33mail.com','anonbox.net',
-        'bccto.me','burnermail.io','deadaddress.com','discard.email','discardmail.com','dispostable.com',
-        'dropmail.me','emailondeck.com','fakeinbox.com','fakemail.net','getnada.com','guerrillamail.com',
-        'guerrillamail.net','guerrillamail.org','guerrillamailblock.com','inboxbear.com','maildrop.cc',
-        'mailinator.com','mailinator.net','mailnesia.com','mintemail.com','moakt.com','mohmal.com',
-        'mytemp.email','nada.email','sharklasers.com','spam4.me','spamgourmet.com','temp-mail.org',
-        'tempail.com','tempemail.net','tempinbox.com','tempmail.com','tempmail.net','tempmailo.com',
-        'throwawaymail.com','trashmail.com','trashmail.net','yopmail.com','yopmail.fr','yopmail.net',
-    ];
-
     public static function validateEmail(string $email, bool $checkDns = true, bool $checkExternal = true): array
     {
-        $email = self::normalizeEmail($email);
+        $local = EmailValidator::validate($email, $checkDns);
         $result = [
-            'ok' => false,
-            'email' => $email,
-            'status' => 'invalid',
+            'ok' => (bool) ($local['valid'] ?? false),
+            'email' => (string) ($local['email'] ?? ''),
+            'status' => (string) ($local['reason'] ?? 'invalid'),
             'message' => 'Ingresa un correo electrónico válido. Ejemplo: nombre@empresa.com',
-            'suggestion' => null,
-            'domain' => '',
-            'dns_checked' => false,
+            'suggestion' => $local['suggestion'] ?? null,
+            'domain' => (string) ($local['domain'] ?? ''),
+            'dns_checked' => !empty($local['dns_checked']),
+            'dns_mode' => $local['dns_mode'] ?? null,
             'external_checked' => false,
         ];
 
-        if ($email === '' || strlen($email) > 254 || preg_match('/\s/u', $email)) {
+        if (!$result['ok']) {
+            $result['message'] = match ($result['status']) {
+                'domain_typo' => '¿Quisiste escribir ' . (string) $result['suggestion'] . '?',
+                'disposable_domain' => 'Utiliza un correo electrónico permanente para continuar.',
+                'domain_no_mail_dns' => 'El dominio de este correo no parece válido. Revisa la dirección e inténtalo nuevamente.',
+                'obvious_fake' => 'Ingresa un correo electrónico real para continuar.',
+                default => 'Ingresa un correo electrónico válido. Ejemplo: nombre@empresa.com',
+            };
             return $result;
-        }
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return $result;
-        }
-
-        [$local, $domain] = explode('@', $email, 2);
-        $domain = self::asciiDomain(strtolower(rtrim($domain, '.')));
-        $result['domain'] = $domain;
-
-        if ($local === '' || $domain === '' || !str_contains($domain, '.') || strlen($domain) > 253) {
-            return $result;
-        }
-
-        if (!preg_match('/^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/i', $domain) || str_contains($domain, '..')) {
-            return $result;
-        }
-
-        $suggestedDomain = self::suggestDomain($domain);
-        if ($suggestedDomain !== null && $suggestedDomain !== $domain) {
-            $suggestion = $local . '@' . $suggestedDomain;
-            $result['status'] = 'suggestion';
-            $result['suggestion'] = $suggestion;
-            $result['message'] = '¿Quisiste escribir ' . $suggestion . '?';
-            return $result;
-        }
-
-        if (self::isDisposableDomain($domain)) {
-            $result['status'] = 'disposable';
-            $result['message'] = 'Utiliza un correo electrónico permanente para continuar.';
-            return $result;
-        }
-
-        if ($checkDns) {
-            $result['dns_checked'] = true;
-            if (!self::domainExists($domain) || !self::domainHasMx($domain)) {
-                $result['status'] = 'domain';
-                $result['message'] = 'El dominio de este correo no parece válido. Revisa la dirección e inténtalo nuevamente.';
-                return $result;
-            }
         }
 
         if ($checkExternal && self::externalValidationEnabled()) {
-            $external = self::validateWithExternalService($email);
+            $external = self::validateWithExternalService((string) $result['email']);
             $result['external_checked'] = (bool) ($external['checked'] ?? false);
             $result['external_provider'] = (string) ($external['external_provider'] ?? '');
             $result['external_latency_ms'] = isset($external['external_latency_ms']) ? (int) $external['external_latency_ms'] : null;
             if (($external['checked'] ?? false) && ($external['definitive_invalid'] ?? false)) {
+                $result['ok'] = false;
                 $result['status'] = 'mailbox';
                 $result['message'] = 'Este correo no parece poder recibir mensajes. Revisa la dirección e inténtalo nuevamente.';
                 return $result;
             }
         }
 
-        $result['ok'] = true;
         $result['status'] = 'valid';
         $result['message'] = 'Correo válido';
         return $result;
@@ -151,95 +90,17 @@ final class PublicFormGuard
 
     public static function normalizeEmail(string $email): string
     {
-        $email = trim($email);
-        $email = preg_replace('/[\x{00A0}\x{200B}-\x{200D}\x{FEFF}]/u', '', $email) ?? $email;
-        return strtolower($email);
+        return EmailValidator::normalize($email);
     }
 
     public static function suggestDomain(string $domain): ?string
     {
-        $domain = strtolower($domain);
-        if (isset(self::TYPO_DOMAINS[$domain])) {
-            return self::TYPO_DOMAINS[$domain];
-        }
-
-        $known = ['gmail.com','hotmail.com','outlook.com','yahoo.com','icloud.com','protonmail.com'];
-        foreach ($known as $candidate) {
-            if (abs(strlen($candidate) - strlen($domain)) > 2) {
-                continue;
-            }
-            $distance = levenshtein($domain, $candidate);
-            if ($distance > 0 && $distance <= 2) {
-                return $candidate;
-            }
-        }
-        return null;
+        return EmailValidator::suggestDomain($domain);
     }
 
     public static function isDisposableDomain(string $domain): bool
     {
-        $domain = strtolower($domain);
-        if (in_array($domain, self::DISPOSABLE_DOMAINS, true)) {
-            return true;
-        }
-
-        foreach (['mailinator.','yopmail.','guerrillamail.','10minutemail.','tempmail.','temp-mail.','throwawaymail.','trashmail.'] as $fragment) {
-            if (str_contains($domain, $fragment)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static function domainExists(string $domain): bool
-    {
-        if (function_exists('checkdnsrr')) {
-            try {
-                if (@checkdnsrr($domain, 'A') || @checkdnsrr($domain, 'AAAA') || @checkdnsrr($domain, 'MX') || @checkdnsrr($domain, 'NS')) {
-                    return true;
-                }
-                return false;
-            } catch (Throwable) {
-                return true;
-            }
-        }
-
-        if (function_exists('dns_get_record')) {
-            try {
-                $records = @dns_get_record($domain, DNS_A | DNS_AAAA | DNS_MX | DNS_NS);
-                return is_array($records) && count($records) > 0;
-            } catch (Throwable) {
-                return true;
-            }
-        }
-
-        return true;
-    }
-
-    public static function domainHasMx(string $domain): bool
-    {
-        if (function_exists('checkdnsrr')) {
-            try {
-                if (@checkdnsrr($domain, 'MX')) {
-                    return true;
-                }
-                return false;
-            } catch (Throwable) {
-                return true;
-            }
-        }
-
-        if (function_exists('dns_get_record')) {
-            try {
-                $records = @dns_get_record($domain, DNS_MX);
-                return is_array($records) && count($records) > 0;
-            } catch (Throwable) {
-                return true;
-            }
-        }
-
-        // DNS tooling is unavailable on the server. Fail open rather than rejecting a legitimate lead.
-        return true;
+        return EmailValidator::isDisposableDomain($domain);
     }
 
     public static function ensureSecurityTables(): void
