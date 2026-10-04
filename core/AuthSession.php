@@ -155,6 +155,8 @@ final class AuthSessionManager
     {
         self::start();
         $adminId = (int)($_SESSION['admin_id'] ?? 0);
+        $rememberValue = trim((string)($_SESSION['remember_login_value'] ?? self::rememberedLogin()));
+        $rememberEnabled = (bool)($_SESSION['remember_login_enabled'] ?? ($rememberValue !== ''));
 
         try {
             if ($adminId > 0) {
@@ -170,12 +172,16 @@ final class AuthSessionManager
         self::destroyPhpSession();
         if ($clearRememberLogin) {
             self::deleteCookie(self::REMEMBER_LOGIN_COOKIE);
+        } elseif ($rememberEnabled && $rememberValue !== '') {
+            self::writeRememberCookie($rememberValue);
         }
     }
 
     public static function forceFreshLogin(bool $clearRememberLogin = false): void
     {
         self::start();
+        $rememberValue = trim((string)($_SESSION['remember_login_value'] ?? self::rememberedLogin()));
+        $rememberEnabled = (bool)($_SESSION['remember_login_enabled'] ?? ($rememberValue !== ''));
         if (!empty($_SESSION['admin_id'])) {
             try {
                 self::ensureTable();
@@ -190,6 +196,8 @@ final class AuthSessionManager
         self::destroyPhpSession();
         if ($clearRememberLogin) {
             self::deleteCookie(self::REMEMBER_LOGIN_COOKIE);
+        } elseif ($rememberEnabled && $rememberValue !== '') {
+            self::writeRememberCookie($rememberValue);
         }
     }
 
@@ -211,29 +219,23 @@ final class AuthSessionManager
 
     public static function setRememberLogin(string $login, bool $remember): void
     {
+        self::start();
         $value = trim($login);
 
-        // Remove legacy variants first so an older cookie on / or /admin/
-        // cannot shadow the current remembered identifier.
+        // Remove every legacy path variant first. From this version forward
+        // the preference is written only at / so localhost, subfolders and
+        // production all resolve the same cookie.
         self::deleteRememberCookieVariants();
 
         if (!$remember || $value === '') {
-            unset($_COOKIE[self::REMEMBER_LOGIN_COOKIE]);
+            $_SESSION['remember_login_enabled'] = false;
+            unset($_SESSION['remember_login_value'], $_COOKIE[self::REMEMBER_LOGIN_COOKIE]);
             return;
         }
 
-        $path = self::rememberCookiePath();
-        setcookie(self::REMEMBER_LOGIN_COOKIE, $value, [
-            'expires' => time() + (30 * 86400),
-            'path' => $path,
-            'secure' => self::isHttps(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-
-        // Keep the request state coherent. The browser receives the cookie
-        // in the response, but PHP does not populate $_COOKIE automatically.
-        $_COOKIE[self::REMEMBER_LOGIN_COOKIE] = $value;
+        $_SESSION['remember_login_enabled'] = true;
+        $_SESSION['remember_login_value'] = $value;
+        self::writeRememberCookie($value);
     }
 
     public static function rememberedLogin(): string
@@ -342,6 +344,24 @@ final class AuthSessionManager
             'samesite' => 'Lax',
         ]);
         unset($_COOKIE[$name]);
+    }
+
+    private static function writeRememberCookie(string $value): void
+    {
+        $value = trim($value);
+        if ($value === '' || preg_match('/[\r\n\0]/', $value)) {
+            return;
+        }
+
+        setcookie(self::REMEMBER_LOGIN_COOKIE, substr($value, 0, 190), [
+            'expires' => time() + (30 * 86400),
+            'path' => '/',
+            'secure' => self::isHttps(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+
+        $_COOKIE[self::REMEMBER_LOGIN_COOKIE] = substr($value, 0, 190);
     }
 
     private static function rememberCookiePath(): string
