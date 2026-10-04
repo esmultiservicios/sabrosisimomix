@@ -16,6 +16,11 @@ if (setting('maintenance_mode', '0') === '1' && !isset($_GET['preview'])) {
     <html lang="es">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico?v=1">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png?v=1">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png?v=1">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png?v=1">
+    <link rel="manifest" href="assets/favicon/site.webmanifest?v=1">
     <title>Mantenimiento</title>
     <style>
         body{margin:0;min-height:100vh;display:grid;place-items:center;background:#17110f;color:#fff;font:16px system-ui;text-align:center}
@@ -136,6 +141,11 @@ record_public_visit((string)($_SERVER['REQUEST_URI'] ?? '/'));
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="assets/favicon/favicon.ico?v=1">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png?v=1">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png?v=1">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png?v=1">
+    <link rel="manifest" href="assets/favicon/site.webmanifest?v=1">
     <meta name="theme-color" content="#18110f">
     <meta name="description" content="<?= h($seoDescription) ?>">
     <meta name="robots" content="<?= h($seoRobots) ?>">

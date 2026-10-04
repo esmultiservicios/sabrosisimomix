@@ -476,6 +476,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <meta name="theme-color" content="#17110f">
+    <link rel="icon" type="image/x-icon" href="../assets/favicon/favicon.ico?v=1">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon/favicon-32x32.png?v=1">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon/favicon-16x16.png?v=1">
+    <link rel="apple-touch-icon" sizes="180x180" href="../assets/favicon/apple-touch-icon.png?v=1">
+    <link rel="manifest" href="../assets/favicon/site.webmanifest?v=1">
     <title>Instalar Sabrosísimo Mix CMS</title>
     <link rel="stylesheet" href="../assets/css/install.css?v=<?= @filemtime($root . '/assets/css/install.css') ?>">
     <link rel="stylesheet" href="../assets/vendor/ui-feedback.css?v=<?= @filemtime($root . '/assets/vendor/ui-feedback.css') ?>">
